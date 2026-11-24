@@ -25,6 +25,11 @@ export interface CodeCycle {
   california: boolean;
   building: string;
   residential: string;
+  /** full code names as written in the S0 codes panel */
+  buildingName: string;
+  residentialName: string;
+  /** code for work on existing construction */
+  existingCode: string;
   asce7: "ASCE 7-22" | "ASCE 7-16";
   nds: "NDS-2024" | "NDS-2018";
   ndsSupplement: string;
@@ -47,6 +52,9 @@ export const CODE_CYCLES = {
     california: true,
     building: "2025 CBC / 2024 IBC",
     residential: "2025 CRC / 2024 IRC",
+    buildingName: "California Building Code",
+    residentialName: "California Residential Code",
+    existingCode: "2025 CEBC (California Existing Building Code)",
     asce7: "ASCE 7-22",
     nds: "NDS-2024",
     ndsSupplement: "NDS Supplement 2024",
@@ -65,6 +73,9 @@ export const CODE_CYCLES = {
     california: true,
     building: "2022 CBC / 2021 IBC",
     residential: "2022 CRC / 2021 IRC",
+    buildingName: "California Building Code",
+    residentialName: "California Residential Code",
+    existingCode: "2022 CEBC (California Existing Building Code)",
     asce7: "ASCE 7-16",
     nds: "NDS-2018",
     ndsSupplement: "NDS Supplement 2018",
@@ -81,7 +92,7 @@ export const CODE_CYCLES = {
 /** Same referenced standards as a base cycle; only the governing-code names change. */
 const basedOn = (
   base: CodeCycle,
-  c: Pick<CodeCycle, "id" | "label" | "building" | "residential"> & { california?: boolean },
+  c: Pick<CodeCycle, "id" | "label" | "building" | "residential" | "buildingName" | "residentialName" | "existingCode">,
 ): CodeCycle => {
   const short = c.building.split(" / ")[0];
   return {
@@ -98,12 +109,18 @@ CODE_CYCLES.IBC2024 = basedOn(CODE_CYCLES["2025"], {
   label: "2024 IBC / IRC (model code)",
   building: "2024 IBC",
   residential: "2024 IRC",
+  buildingName: "International Building Code",
+  residentialName: "International Residential Code",
+  existingCode: "2024 IEBC (International Existing Building Code)",
 });
 CODE_CYCLES.IBC2021 = basedOn(CODE_CYCLES["2022"], {
   id: "IBC2021",
   label: "2021 IBC / IRC (model code)",
   building: "2021 IBC",
   residential: "2021 IRC",
+  buildingName: "International Building Code",
+  residentialName: "International Residential Code",
+  existingCode: "2021 IEBC (International Existing Building Code)",
 });
 // shortcut: state editions as known at release; confirm the edition in force on the permit date before issue.
 CODE_CYCLES.OR2022 = basedOn(CODE_CYCLES["2022"], {
@@ -111,12 +128,18 @@ CODE_CYCLES.OR2022 = basedOn(CODE_CYCLES["2022"], {
   label: "Oregon 2022 OSSC / 2023 ORSC (2021 IBC / IRC)",
   building: "2022 OSSC / 2021 IBC",
   residential: "2023 ORSC / 2021 IRC",
+  buildingName: "Oregon Structural Specialty Code",
+  residentialName: "Oregon Residential Specialty Code",
+  existingCode: "2022 OSSC provisions for existing buildings, as adopted by the State of Oregon",
 });
 CODE_CYCLES.WA2021 = basedOn(CODE_CYCLES["2022"], {
   id: "WA2021",
   label: "Washington 2021 IBC / IRC (WAC 51-50 / 51-51)",
   building: "2021 IBC (WAC 51-50)",
   residential: "2021 IRC (WAC 51-51)",
+  buildingName: "International Building Code with Washington State amendments",
+  residentialName: "International Residential Code with Washington State amendments",
+  existingCode: "2021 IEBC (WAC 51-50)",
 });
 
 export const CYCLE_IDS = Object.keys(CODE_CYCLES) as [CycleId, ...CycleId[]];

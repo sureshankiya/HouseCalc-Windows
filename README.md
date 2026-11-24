@@ -2,6 +2,7 @@
 
 Windows desktop edition of HouseCalc: a frozen copy of the calculator from
 [sureshankiya/CAL](https://github.com/sureshankiya/CAL) (@ b39bc41, all branches combined) in a native window. Runs offline.
+This repo is now the primary HouseCalc; CAL (browser version) is left unchanged.
 
 **Install:** Actions → Windows build → latest run → Artifacts → `HouseCalc-Windows` → unzip →
 `HouseCalc Setup 1.0.1.exe` (installer) or `HouseCalc 1.0.1.exe` (portable, no install).

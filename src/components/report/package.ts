@@ -6,6 +6,7 @@
  * headers, joists, I-joists.
  */
 
+import { exposureRequirements } from "@/engine/data/concreteExposure";
 import type { MemberSpec, Project, ProjectDesign } from "@/engine/project";
 import { duplicateMarks } from "@/engine/project";
 
@@ -267,6 +268,13 @@ export function validationItems(p: Project, design: ProjectDesign): ValidationIt
   const out: ValidationItem[] = packageChecks(p, design)
     .filter((c) => !c.ok)
     .map((c) => ({ where: "Package", text: c.text }));
+  const exp = p.criteria.concrete.exposure;
+  const minFc = exp ? exposureRequirements(exp).fc : 2500;
+  if (p.criteria.concrete.fc < minFc)
+    out.push({
+      where: "Criteria",
+      text: `Concrete f'c ${p.criteria.concrete.fc} psi is below the ACI 318-19 Table 19.3.2.1 minimum of ${minFc} psi for exposure ${exp ? `${exp.F} / ${exp.S} / ${exp.W} / ${exp.C}` : ""}: raise f'c or change the exposure classes`,
+    });
   if (design.circular.length)
     out.push({
       where: "Package",

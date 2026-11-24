@@ -1001,6 +1001,8 @@ export function issuedNoteLine(line: string): string {
   const bullet = /^-\s+/.test(line) ? "- " : "";
   const body = line.replace(/^-\s+/, "");
   const lead = /^([^:]{1,60}:\s*)/.exec(body)?.[1] ?? "";
+  // a heading line ("FOOTINGS, WALLS, GRADE BEAMS:") has nothing to clean
+  if (!body.slice(lead.length).trim()) return line;
   const kept = body
     .slice(lead.length)
     .replace(/(?:^|,\s*)[^,:;]*\bNot stated\b/g, "")

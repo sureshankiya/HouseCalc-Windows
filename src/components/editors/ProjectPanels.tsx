@@ -9,6 +9,7 @@ import { SOIL_CLASSES, soilClass } from "@/engine/data/soil";
 import { HARDWARE_KIND_LABEL, defaultHardware, type HardwareItem, type HardwareKind } from "@/engine/data/hardware";
 import { SEISMIC_SYSTEMS } from "@/engine/loads/seismic";
 import { S0_PANELS, S0_TEMPLATE } from "@/engine/data/s0Template";
+import { DEFAULT_EXPOSURE, EXPOSURE_CLASSES, type ConcreteExposure } from "@/engine/data/concreteExposure";
 import {
   applyOfficeDefaults,
   applyPreset,
@@ -262,6 +263,12 @@ export function ProjectInfoPanel({ p, set }: { p: Project; set: SetProject }) {
           <TextInput value={p.info.jurisdiction} onChange={(v) => info("jurisdiction", v)} />
         </Field>
       </Grid>
+      <Field
+        label="Construction type"
+        hint="Per the architectural drawings, e.g. V-B; printed on the S0 general notes (blank = omitted)"
+      >
+        <TextInput value={p.info.constructionType ?? ""} onChange={(v) => info("constructionType", v)} />
+      </Field>
       <Grid>
         <Field label="Prepared by">
           <TextInput value={p.info.preparedBy} onChange={(v) => info("preparedBy", v)} />
@@ -578,6 +585,24 @@ export function CriteriaPanel({ p, set }: { p: Project; set: SetProject }) {
             onChange={(v) => crit({ concrete: { ...c.concrete, cover: v ?? 3 } })}
           />
         </Field>
+      </Grid>
+      <Grid cols={4}>
+        {(["F", "S", "W", "C"] as const).map((k) => (
+          <Field key={k} label={`Exposure ${k} (ACI 318-19 19.3.1.1)`}>
+            <Select
+              value={(c.concrete.exposure ?? DEFAULT_EXPOSURE)[k]}
+              options={Object.entries(EXPOSURE_CLASSES[k]).map(([v, d]) => ({ value: v, label: `${v} ${d.label}` }))}
+              onChange={(v) =>
+                crit({
+                  concrete: {
+                    ...c.concrete,
+                    exposure: { ...(c.concrete.exposure ?? DEFAULT_EXPOSURE), [k]: v } as ConcreteExposure,
+                  },
+                })
+              }
+            />
+          </Field>
+        ))}
       </Grid>
       <Check
         checked={!!p.slab}

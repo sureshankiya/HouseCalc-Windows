@@ -1136,6 +1136,8 @@ export const projectSchema = z.object({
     approvedBy: z.string().default(""),
     date: z.string().default(""),
     revision: z.string().default("0"),
+    /** construction type per the architectural drawings (printed on S0 general notes; blank = omitted) */
+    constructionType: z.string().optional(),
     /** printed issue (absent = "final"): "final" = issued calculations (no VERIFY / review wording); "check" = working copy */
     issue: z.enum(["final", "check"]).optional(),
   }),
@@ -1155,7 +1157,22 @@ export const projectSchema = z.object({
       density: pos.default(120),
       frostDepth: nonneg.optional(),
     }),
-    concrete: z.object({ fc: pos, fy: pos, cover: pos }).default({ fc: 2500, fy: 60000, cover: 3 }),
+    concrete: z
+      .object({
+        fc: pos,
+        fy: pos,
+        cover: pos,
+        /** ACI 318-19 Table 19.3.1.1 exposure classes (absent = F0 / S0 / W0 / C0) */
+        exposure: z
+          .object({
+            F: z.enum(["F0", "F1", "F2", "F3"]),
+            S: z.enum(["S0", "S1", "S2", "S3"]),
+            W: z.enum(["W0", "W1", "W2"]),
+            C: z.enum(["C0", "C1", "C2"]),
+          })
+          .optional(),
+      })
+      .default({ fc: 2500, fy: 60000, cover: 3 }),
   }),
   assemblies: z.array(assemblySchema),
   structures: z.array(structureSchema).min(1),

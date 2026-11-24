@@ -8,10 +8,12 @@
 
 import { getCycle } from "../core/codes";
 import { fmt } from "../core/fmt";
+import { DEFAULT_EXPOSURE, EXPOSURE_CLASSES, exposureRequirements } from "../data/concreteExposure";
 import { S0_TEMPLATE } from "../data/s0Template";
 import { TYPICAL_NAILING } from "../data/nailing";
 import { nailDef } from "../design/dowel";
 import type { PlyConnectionInput } from "../design/plies";
+import { resolveWood, type WoodMaterial } from "../design/wood";
 import { assemblyDesignValue } from "../loads/dead";
 import { DEFLECTION_PRESETS } from "../loads/deflection";
 import { liveLoad } from "../loads/live";
@@ -68,6 +70,63 @@ const plyText = (c: PlyConnectionInput) =>
     : `${c.rows} rows ${fmt(c.boltDia ?? 0.5, 3)} in. dia. through-bolts`;
 
 const up = (s: string) => s.toUpperCase();
+const psi = (n: number) => Math.round(n).toLocaleString("en-US");
+
+/** every object in a member input tree (materials sit at different depths per member kind) */
+function eachObject(x: unknown, f: (o: Record<string, unknown>) => void) {
+  if (Array.isArray(x)) for (const v of x) eachObject(v, f);
+  else if (x && typeof x === "object") {
+    f(x as Record<string, unknown>);
+    for (const v of Object.values(x)) eachObject(v, f);
+  }
+}
+
+/**
+ * Template placeholder values. Text: replaced in the line. List: the line is dropped when empty;
+ * the first item replaces the placeholder and the rest follow as lines. Condition: the line is kept
+ * only when true.
+ */
+export type S0Value = string | string[] | boolean;
+
+/**
+ * Fill one template text: placeholders, dropped lines (a dropped numbered note takes its
+ * unnumbered sub-lines with it), `post` applied to each line, numbered notes renumbered.
+ */
+export function fillTemplate(
+  text: string,
+  vars: Record<string, S0Value>,
+  post: (line: string) => string = (l) => l,
+): string[] {
+  const numbered = (l: string) => /^\d+\.\s/.test(l);
+  const out: string[] = [];
+  let skipping = false;
+  for (const raw of lines(text)) {
+    if (skipping && !numbered(raw)) continue;
+    skipping = false;
+    let line = raw;
+    let extra: string[] = [];
+    let keep = true;
+    for (const [, key] of raw.matchAll(/\{([A-Z0-9_]+)\}/g)) {
+      const v = vars[key];
+      if (v === undefined) continue;
+      if (typeof v === "boolean") keep &&= v;
+      else if (Array.isArray(v)) {
+        if (!v.length) keep = false;
+        else {
+          line = line.replace(`{${key}}`, v[0]);
+          extra = [...extra, ...v.slice(1)];
+        }
+        continue;
+      }
+      line = line.replace(`{${key}}`, typeof v === "string" ? v : "");
+    }
+    // a note emptied by `post` (final-issue wording removed) goes, number and all
+    if (keep) out.push(...[line, ...extra].map(post).filter((l) => l && !/^\d+\.$/.test(l.trim())));
+    else skipping = numbered(raw);
+  }
+  let n = 0;
+  return out.map((l) => (numbered(l) ? l.replace(/^\d+/, String(++n)) : l));
+}
 /** template text: markdown emphasis and quote markers removed, one note per line */
 const lines = (s: string) =>
   s
@@ -97,27 +156,17 @@ export function generalNotesSheet(
       (r.kind === "retainingWall" && r.input.stem.material === "cmu"),
   );
 
-  const joists = rs.filter((r) => r.kind === "joist" || r.kind === "ijoist");
+  const vars = s0Values(p, d, rs);
   const fill = (key: string): string[] =>
-    lines(p.s0Notes?.[key] ?? S0_TEMPLATE[key] ?? "")
-      .flatMap((l) => {
-        if (!l.includes("{FLOOR_JOISTS}")) return [l];
-        if (!joists.length) return [];
-        const txt = joists.map((r) => `${r.mark}: ${r.callout}`).join("; ");
-        return [l.replace("{FLOOR_JOISTS}", up(`Floor joists: ${txt}`))];
-      })
-      .map((l) => issued(l.replace(/\{FC\}/g, fmt(cr.concrete.fc, 0)).replace(/\{ASCE\}/g, c.asce7)));
+    fillTemplate(p.s0Notes?.[key] ?? S0_TEMPLATE[key] ?? "", vars, (l) => issued(up(l)));
   const panel = (key: string, title = key): S0Panel => ({ title, kind: "notes", lines: fill(key) });
 
   // ---------------------------------------------------------------- codes and standards
   const jur = p.info.jurisdiction.trim();
   const codes = [
-    `${c.building.split(" / ")[0]} (California Building Code${jur ? `), including the ${jur} amendments` : ")"}.`,
-    `${c.residential.split(" / ")[0]} (California Residential Code), where applicable to one- and two-family dwellings and accessory structures.`,
-    ...(rs.some((r) => JSON.stringify(r.input).includes('"existing"')) ||
-    rs.some((r) => r.kind === "joist" && r.input.sister)
-      ? [`${p.cycleId} CEBC (California Existing Building Code) for work on existing construction.`]
-      : []),
+    `${c.building.split(" / ")[0]} (${c.buildingName}${jur ? `), including the ${jur} amendments` : ")"}.`,
+    `${c.residential.split(" / ")[0]} (${c.residentialName}), where applicable to one- and two-family dwellings and accessory structures.`,
+    ...(vars.IF_EXISTING ? [`${c.existingCode} for work on existing construction.`] : []),
     `ASCE/SEI ${c.asce7.replace("ASCE ", "")} for the determination of dead, live, roof, snow, wind and seismic loads.`,
     `ANSI/AWC ${c.nds} (National Design Specification for Wood Construction) with the ${c.ndsSupplement}.`,
     `ANSI/AWC ${c.sdpws} (Special Design Provisions for Wind and Seismic) for shear walls and diaphragms.`,
@@ -442,4 +491,202 @@ export function generalNotesSheet(
   const panels = all.filter((x) => x.kind !== "notes" || x.lines.length);
 
   return { panels, index, sheetNo: index[0][0] };
+}
+
+/** Values for the S0 template placeholders, taken from the project and its calculation results. */
+export function s0Values(p: Project, d: ProjectDesign, rs: AnyResult[]): Record<string, S0Value> {
+  const c = getCycle(p.cycleId);
+  const cr = p.criteria;
+  const has = (...k: AnyResult["kind"][]) => rs.some((r) => k.includes(r.kind));
+  const of = <K extends AnyResult["kind"]>(k: K) =>
+    rs.filter((r): r is Extract<AnyResult, { kind: K }> => r.kind === k);
+  const code = (full: string) => full.split(" ")[1] ?? full;
+  const nds = c.nds;
+
+  // materials anywhere in the member inputs
+  const grades = new Set<string>();
+  const scl = new Map<string, string>();
+  const glulam = new Set<string>();
+  let builtUp = false;
+  for (const m of p.members)
+    eachObject(m, (o) => {
+      if (typeof o.species === "string" && typeof o.grade === "string") grades.add(`${o.species} ${o.grade}`);
+      if ((o.kind === "sawn" || o.kind === "scl") && typeof o.plies === "number" && o.plies > 1) builtUp = true;
+      if (o.kind === "glulam" && typeof o.combo === "string") glulam.add(o.combo);
+      if (o.kind === "scl" && typeof o.product === "string" && !scl.has(o.product)) {
+        const w = resolveWood(o as unknown as WoodMaterial, nds);
+        scl.set(
+          o.product,
+          `${w.speciesLabel}: E = ${psi(w.E)} psi, Fb = ${psi(w.Fb)} psi, Fv = ${psi(w.Fv)} psi, Fc⊥ = ${psi(w.Fcperp)} psi.`,
+        );
+      }
+    });
+
+  // concrete exposure (ACI 318-19 Tables 19.3.1.1 / 19.3.2.1)
+  const e = cr.concrete.exposure ?? DEFAULT_EXPOSURE;
+  const req = exposureRequirements(e);
+  const X = EXPOSURE_CLASSES;
+  const exposure = [
+    "Struct. member - exposure category and class",
+    "Footings, walls, grade beams:",
+    `F. Freezing and thawing: ${e.F}-${X.F[e.F].label}`,
+    `S. Sulfate: ${e.S}-${X.S[e.S].label}`,
+    `W. In contact with water: ${e.W}-${X.W[e.W].label}`,
+    `C. Corrosion prot. of reinf.: ${e.C}-${X.C[e.C].label}`,
+  ];
+  const mix = [
+    `Concrete compressive strength, f'c: ${psi(cr.concrete.fc)} psi (ACI minimum for these classes ${psi(req.fc)} psi)`,
+    `Maximum water to cementitious materials ratio: ${req.wcm === undefined ? "no limit" : fmt(req.wcm, 2)}`,
+    `Cementitious material: ${X.S[e.S].note ?? "no restriction on cement type (ASTM C150)"}`,
+    ...req.notes.filter((n) => n !== X.S[e.S].note),
+  ];
+
+  // trusses
+  const roofDl = p.assemblies.filter((a) => a.kind === "roof");
+  const ceilingDl = p.assemblies.filter((a) => a.kind === "ceiling");
+  const atticLive = Math.max(
+    liveLoad("attic-no-storage", cr.liveBasis).psf,
+    ...of("woodTruss").map((r) => r.input.atticLive),
+  );
+  const snow = cr.snow.pg > 0 ? `, ground snow p_g = ${fmt(cr.snow.pg, 0)} psf` : "";
+  const deadOf = (r: { assemblyId?: string; psf?: number }) => {
+    const a = r.assemblyId ? p.assemblies.find((x) => x.id === r.assemblyId) : undefined;
+    return a ? assemblyDesignValue(a) : (r.psf ?? 0);
+  };
+  // engineered trusses: the loads each truss was designed for; otherwise the roof / ceiling assemblies
+  const designed = of("woodTruss").map(
+    (r) =>
+      `${r.mark} top chord: ${fmt(deadOf(r.input.roofDead), 0)} psf DL${r.input.roofLive ? `, ${fmt(cr.roofLive.L0, 0)} psf LL` : ""}${r.input.snow ? snow : ""}; bottom chord: ${fmt(deadOf(r.input.ceilingDead), 0)} psf DL, ${fmt(r.input.atticLive, 0)} psf LL (not concurrent w/ top chord LL)`,
+  );
+  const trussLoads = designed.length
+    ? designed
+    : [
+        ...roofDl.map(
+          (a) =>
+            `${a.name} (top chord): ${fmt(assemblyDesignValue(a), 0)} psf DL, ${fmt(cr.roofLive.L0, 0)} psf LL${snow}`,
+        ),
+        ...ceilingDl.map(
+          (a) =>
+            `${a.name} (bottom chord): ${fmt(assemblyDesignValue(a), 0)} psf DL, ${fmt(atticLive, 0)} psf LL (not concurrent w/ top chord LL)`,
+        ),
+      ];
+  // deflection limits of the roof framing as designed (preset, or the member's own L/n)
+  const roofLimits = p.members.flatMap((m) => {
+    if (!("deflection" in m) || !m.deflection) return [];
+    const dl = m.deflection as { preset: string; live?: number; total?: number };
+    const roofMember = m.kind === "woodTruss" || m.kind === "rafter" || dl.preset.startsWith("roof");
+    if (!roofMember) return [];
+    if (dl.preset in DEFLECTION_PRESETS) return [DEFLECTION_PRESETS[dl.preset as keyof typeof DEFLECTION_PRESETS]];
+    return dl.live && dl.total ? [{ live: dl.live, total: dl.total }] : [];
+  });
+  const stiff = roofLimits.sort((a, b) => b.live - a.live)[0];
+  const lum = (l: { size: string; species: string; grade: string }) => `${l.size} ${l.species} ${l.grade}`;
+  const trussPlate = of("truss").map((r) => r.input.plate)[0];
+  const wallPlate = of("wall")
+    .flatMap((r) => r.packs.map((k) => k.mat))
+    .find((m) => m.kind === "sawn");
+  const fcPerp = trussPlate
+    ? {
+        label: `${trussPlate.species} ${trussPlate.grade}`,
+        v: resolveWood({ kind: "sawn", ...trussPlate, plies: 1 }, nds).Fcperp,
+      }
+    : wallPlate && { label: wallPlate.speciesLabel, v: wallPlate.Fcperp };
+
+  // framing
+  const floorDia = of("diaphragm").filter((r) => r.input.level === "floor");
+  const byCallout = new Map<string, string[]>();
+  for (const r of floorDia) byCallout.set(r.callout, [...(byCallout.get(r.callout) ?? []), r.mark]);
+  const plyMarks = rs.flatMap((r) => (r.kind === "beam" && r.input.plyConnection ? [r.mark] : []));
+  const ties = new Map<string, string[]>();
+  for (const r of of("connector"))
+    if (r.item.kind === "tie") {
+      const k = `${r.item.manufacturer} ${r.item.model}`.trim();
+      ties.set(k, [...(ties.get(k) ?? []), r.input.sourceMark]);
+    }
+  const makers = [
+    ...new Set(
+      hardwareSchedule(p, d)
+        .map((h) => h.manufacturer.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const joists = rs.filter((r) => r.kind === "joist" || r.kind === "ijoist");
+  const deckLive = p.members.flatMap((m) =>
+    eachUse(m)
+      .filter((u) => u === "deck" || u === "balcony")
+      .map((u) => liveLoad(u, cr.liveBasis).psf),
+  );
+  const jur = p.info.jurisdiction.trim();
+
+  return {
+    FC: psi(cr.concrete.fc),
+    FY: fmt(cr.concrete.fy / 1000, 0),
+    ASCE: c.asce7,
+    BC: code(c.building),
+    RC: code(c.residential),
+    BUILDING: c.building.split(" / ")[0],
+    AUTHORITY: jur || "the building official",
+    DECK_LIVE: deckLive.length
+      ? ` Exterior decks and balconies shall be designed for ${fmt(Math.max(...deckLive), 0)} psf live load.`
+      : "",
+    EXPOSURE: exposure,
+    MIX: mix,
+    TRUSS_LOADS: trussLoads,
+    TRUSS_DEFL: [
+      stiff
+        ? `Truss maximum deflection shall not exceed L/${stiff.total} for total load or L/${stiff.live} for live load.`
+        : `Truss maximum deflection shall not exceed the limits of ${code(c.building)} Table 1604.3.`,
+    ],
+    TRUSS_LUMBER: of("woodTruss").map(
+      (r) =>
+        `Truss lumber per calculations, ${r.mark}: top chord ${lum(r.input.tc)}, bottom chord ${lum(r.input.bc)}, webs ${lum(r.input.web)}, or better.`,
+    ),
+    TRUSS_BEARING: fcPerp
+      ? `Maximum plate bearing stress Fc(perp) = ${psi(fcPerp.v)} psi (${fcPerp.label} top plate). If bearing stress on the top plate exceeds ${psi(fcPerp.v)} psi, the truss design shall include all of the required bearing improvements.`
+      : "",
+    SAWN_GRADES: grades.size ? [[...grades].join(" / ")] : [],
+    FLOOR_JOISTS: joists.length ? [`Floor joists: ${joists.map((r) => `${r.mark}: ${r.callout}`).join("; ")}`] : [],
+    SUBFLOOR: [...byCallout].map(([callout, marks]) => `Subfloor: ${callout} (${marks.join(", ")}).`),
+    SCL: scl.size
+      ? ["Structural composite lumber per the manufacturer's ICC-ES evaluation report:", ...scl.values()]
+      : [],
+    GLULAM: glulam.size
+      ? [
+          `Structural glue laminated timber shall be ${[...glulam].join(" / ")} as scheduled and manufactured and identified as required in ANSI A190.1 and ASTM D 3737.`,
+        ]
+      : [],
+    BUILTUP_DESIGNED: plyMarks.length
+      ? [
+          `Where ply fastening is listed in the nailing schedule - designed connections (${plyMarks.join(", ")}), the scheduled fastening governs.`,
+        ]
+      : [],
+    ROOF_TIES: ties.size
+      ? [
+          `Roof framing to wall top plate: ${[...ties].map(([k, m]) => `${k} at ${[...new Set(m)].join(", ")}`).join("; ")}, installed with all specified fasteners.`,
+        ]
+      : [],
+    HARDWARE_MAKERS: makers.length
+      ? [
+          `All metal hardware to be ${makers.join(" or ")} as scheduled, or an approved equal of equal or greater capacity, and installed according to manufacturers requirements.`,
+        ]
+      : [],
+    CONSTRUCTION_TYPE: p.info.constructionType?.trim() ? [`Construction type: ${p.info.constructionType.trim()}.`] : [],
+    IF_IJOIST: has("ijoist"),
+    IF_BUILTUP: builtUp,
+    IF_TRUSS: has("truss", "woodTruss"),
+    IF_JOIST: joists.length > 0,
+    IF_EXISTING:
+      rs.some((r) => JSON.stringify(r.input).includes('"existing"')) ||
+      rs.some((r) => r.kind === "joist" && !!r.input.sister),
+    IF_DFL2: grades.has("DF-L No.2"),
+  };
+}
+
+/** live-load uses named anywhere in a member input */
+function eachUse(m: unknown): Parameters<typeof liveLoad>[0][] {
+  const out: Parameters<typeof liveLoad>[0][] = [];
+  eachObject(m, (o) => {
+    if (typeof o.use === "string") out.push(o.use as Parameters<typeof liveLoad>[0]);
+  });
+  return out;
 }
