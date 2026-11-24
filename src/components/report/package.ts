@@ -47,6 +47,7 @@ const KIND_ORDER: Record<string, number> = {
   wall: 6,
   post: 7,
   shearWall: 8,
+  shearPanel: 8.1,
   connector: 9,
   footing: 10,
   steelBeam: 3,
@@ -60,6 +61,7 @@ const KIND_ORDER: Record<string, number> = {
   holdownFooting: 10.5,
   tieIn: 10.8,
   woodTruss: 1,
+  steelTruss: 1.2,
   retainingWall: 10.9,
   guardPost: 4.6,
   cfsWall: 6.5,
@@ -220,7 +222,9 @@ export function packageChecks(p: Project, design: ProjectDesign): PackageCheck[]
     if (design.lateralError) out.push({ ok: false, text: `Lateral analysis: ${design.lateralError}` });
     for (const w of design.lateral?.warnings ?? []) out.push({ ok: false, text: `Lateral: ${w}` });
     const lines = design.lateral?.lines ?? [];
-    const empty = lines.filter((l) => !p.members.some((m) => m.kind === "shearWall" && m.lineId === l.line.id));
+    const empty = lines.filter(
+      (l) => !p.members.some((m) => (m.kind === "shearWall" || m.kind === "shearPanel") && m.lineId === l.line.id),
+    );
     out.push({
       ok: empty.length === 0,
       text: empty.length
@@ -241,6 +245,48 @@ export function packageChecks(p: Project, design: ProjectDesign): PackageCheck[]
         ? `Diaphragm not designed for: ${missing.join(", ")}`
         : "Diaphragm, chords and collectors designed for every story and direction",
     });
+  }
+  return out;
+}
+
+export interface ValidationItem {
+  /** "Package" = whole-package check; otherwise the member mark */
+  where: string;
+  memberId?: string;
+  text: string;
+}
+
+const r3 = (x: number) => String(Math.round(x * 1000) / 1000);
+
+/**
+ * Everything to resolve before the package is issued: failing package checks, member
+ * errors and failing checks, REQUIRED INPUT / VERIFY notes and VERIFY assumptions.
+ * Listed in the app's Validation panel; never printed in the final package.
+ */
+export function validationItems(p: Project, design: ProjectDesign): ValidationItem[] {
+  const out: ValidationItem[] = packageChecks(p, design)
+    .filter((c) => !c.ok)
+    .map((c) => ({ where: "Package", text: c.text }));
+  if (design.circular.length)
+    out.push({
+      where: "Package",
+      text: `Circular load path: ${design.circular.map((id) => p.members.find((m) => m.id === id)?.mark ?? id).join(", ")}`,
+    });
+  for (const m of p.members) {
+    const o = design.outcomes.get(m.id);
+    const at = (text: string) => out.push({ where: m.mark, memberId: m.id, text });
+    if (!o) continue;
+    if (o.error) {
+      at(`Error: ${o.error}`);
+      continue;
+    }
+    const r = o.result;
+    if (!r) continue;
+    for (const c of r.checks)
+      if (!c.pass)
+        at(`FAIL — ${c.name}: ${r3(c.demand)} / ${r3(c.capacity)} ${c.unit} = D/C ${r3(c.ratio)} (${c.combo})`);
+    for (const f of r.flags) if (/REQUIRED INPUT|VERIFY/.test(f)) at(f);
+    for (const a of r.assumptions) if (a.verify) at(`VERIFY — ${a.item}: ${a.value}`);
   }
   return out;
 }

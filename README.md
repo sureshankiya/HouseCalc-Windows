@@ -1,7 +1,7 @@
 # HouseCalc for Windows
 
 Windows desktop edition of HouseCalc: a frozen copy of the calculator from
-[sureshankiya/CAL](https://github.com/sureshankiya/CAL) (@ 4535c4e) in a native window. Runs offline.
+[sureshankiya/CAL](https://github.com/sureshankiya/CAL) (@ b39bc41, all branches combined) in a native window. Runs offline.
 
 **Install:** Actions → Windows build → latest run → Artifacts → `HouseCalc-Windows` → unzip →
 `HouseCalc Setup 1.0.1.exe` (installer) or `HouseCalc 1.0.1.exe` (portable, no install).
@@ -75,6 +75,61 @@ AI extraction needs an Anthropic API key set as `ANTHROPIC_API_KEY` in the envir
 | Decks | GP-# guard posts (200 lb, bending, shear, washer bearing, bolt tension, tension device); deck framing uses the joist / beam / post / ledger / pad modules with the 40 psf deck live load, wet service and incising; deck and retaining-wall notes; **Deck + RW** options project |
 | Cold-formed steel | CS-# stud walls (optional): allowables from the manufacturer / SSMA table, demands, AISI S100-16 H1.2 with B₁ amplification, deflection |
 | Sign-off | SIGNOFF.md — release checklist; items for the Engineer of Record are listed there |
+
+## Rev. B — trusses from the Lovable apps
+
+| Area | Included |
+|---|---|
+| Steel roof trusses | STR-# — Truss Report Master (STRUTURA) roof patterns (king, queen, Pratt, Howe, Warren, Fink, double Fink, fan, modified queen, scissors, north-light, bowstring, pitched parallel chord), 4–16 panels; sections and grades from the HouseCalc AISC library per group (top / bottom chord, end verticals, verticals, diagonals); direct-stiffness pin-jointed analysis; LRFD or ASD with wind down / uplift and unbalanced snow; AISC D2 yielding and rupture, E3 / E7 with in-plane and out-of-plane lengths, tail flexure, service deflection; sheet, schedule, notes, load path. Corrections to STRUTURA in PLAN.md §12.2 #9–#14 |
+| Custom wood trusses | T-# "custom" configuration from Roof Truss Planner (TrussCalc): joint coordinates and member connections edited in the member panel, validated by TrussCalc's rules (2j − 3 members, bearings at (0, 0) and (span, 0), chords continuous, stable) before analysis |
+
+## Review additions (engine 1.0.1-wip.18)
+
+| Area | Included |
+|---|---|
+| Report fixes | Criteria-sheet ASD combinations follow the cycle's ASCE 7 edition (0.7S under 7-22); S_DS no longer garbled in relabelled combinations; pre-release (wip) builds print "pre-release build"; materials table by category (wood, concrete, steel, anchor rods, masonry, CFS); q_h / q_h K_d wording; ASCE 7-22 Table 26.11-1 exposure constants for K_z |
+| Snow | Unbalanced gable surcharge for W > 20 ft (rafters, trusses); snow drift loads at roof steps (§7.7) and parapets / projections (§7.8) on joists, I-joists, beams, steel beams and walls; ASCE 7-22 W_2 input |
+| Shear walls | Perforated shear walls (SDPWS-2021 4.3.3.5): C_o, v_max, chord / hold-down forces, uplift between hold-downs, nominal shear limit, deflection / C_o |
+| Lateral | ASCE 7 Ch. 27 Part 1 directional MWFRS option; semi-rigid diaphragm distribution (Timoshenko beam on wall-line springs, diaphragm G_a per story) |
+| Serviceability / fire | Optional floor vibration check on FJ / IJ (f ≥ 15 Hz, Dolan et al. 1999 — guidance); NDS Ch. 16 calculated fire resistance for exposed beams and posts |
+
+## Feature additions (engine 1.0.1-wip.19)
+
+| Area | Included |
+|---|---|
+| Built-up beams | Fastening between plies (nails or through-bolts) for top, one-side and two-side loading, NDS 12.3 yield values with C_D |
+| Notches and holes | FJ / B: NDS 4.4.3 and IRC R502.8.1 limits, net-section bending and shear, end-notch shear (NDS Eq. 3.4-3) |
+| Existing lumber | Full-length sistered joists (load shared by EI, both members checked, sister fastening); "no grade stamp" assumption flagged VERIFY |
+| Portal frames / prefab panels | SSW-#: share of the wall line by capacity, in-plane shear, drift and anchorage against the values entered per product in the hardware list |
+| Continuous rods | Rod tension (AISC 360 J3.6), bearing plate, displacement per story ≤ 0.20 in. (ICC-ES AC316), rod displacement in the shear wall drift |
+| Seismic | ASCE 7 §12.14 simplified alternative (option); USGS S_DS / S_D1 lookup from the site address (confirm before apply) |
+| CAD | Export DXF: schedules and general notes as an AutoCAD R12 DXF (text + table grid, NCS layers S-ANNO-SCHD / -NOTE / -TTLB) |
+
+## Claude connector (MCP)
+
+`mcp/server.ts` is an MCP server that gives Claude direct access to the HouseCalc engine — no
+browser, no screenshots. Claude Code picks it up automatically from `.mcp.json` when opened in this
+repository (approve the `housecalc` server once when asked; needs `bun install`).
+
+| Tool | Does |
+|---|---|
+| `load_project` | open a `*.housecalc.json` file or a built-in project (new, example, sanMiguel, eastLincoln, deck) |
+| `save_project` | write the project file (open it in the app to print the PDF / DOCX package) |
+| `project_summary` | info, criteria, levels, marks, every member with callout, status, governing D/C |
+| `get_member` | one member's input spec and full result: checks, reactions, flags, assumptions |
+| `add_member` / `update_member` / `delete_member` | edit members; every edit is schema-validated before it is kept |
+| `update_project` | info, criteria, assemblies, hardware, lateral, notes |
+| `fill_from_markdown` / `export_markdown` | the same Markdown input sheet as Fill from .md / Export .md |
+| `run_design` | design the whole package: package checks, load-path problems, member statuses |
+
+Claude Desktop: add to `claude_desktop_config.json` (use the absolute path of this folder):
+
+```json
+{ "mcpServers": { "housecalc": { "command": "bun", "args": ["/path/to/CAL/mcp/server.ts"] } } }
+```
+
+Self-check: `bun run mcp:smoke`. The PDF / DOCX report still renders in the app (it is laid out by
+the browser); the connector edits, designs and saves the project that the app prints.
 
 ## Use
 

@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportPackage } from "@/components/report/ReportPackage";
-import { buildPackage } from "@/components/report/package";
+import { buildTruss } from "@/engine/analysis/trussGeometry";
+import { buildPackage, validationItems } from "@/components/report/package";
 import { scrubText } from "@/components/report/primitives";
 import {
   applyMarkdown,
@@ -13,6 +14,7 @@ import {
   designProject,
   eastLincolnTrussProject,
   exampleProject,
+  newMemberSpec,
   sanMiguelProject,
   type Project,
 } from "@/engine/project";
@@ -64,7 +66,34 @@ const fromDrawings = () => {
   return a.project;
 };
 
-const PROJECTS = { exampleProject, sanMiguelProject, eastLincolnTrussProject, deckExampleProject, fromDrawings };
+/** Example house plus a steel roof truss (STR) and a custom-layout wood truss (T). */
+const trusses = () => {
+  const p = exampleProject();
+  const s = p.structures[0];
+  const lv = s.levels[s.levels.length - 1];
+  const str = newMemberSpec(p, "steelTruss", s.id, lv.id);
+  p.members.push(str);
+  const wt = newMemberSpec(p, "woodTruss", s.id, lv.id);
+  if (wt.kind === "woodTruss") {
+    const g = buildTruss("queen", wt.span, wt.pitch);
+    wt.type = "custom";
+    wt.customLayout = {
+      nodes: g.nodes.map(({ x, y, onTopChord, onBottomChord }) => ({ x, y, top: onTopChord, bottom: onBottomChord })),
+      members: g.members.map(({ a, b, group }) => ({ a, b, group })),
+    };
+  }
+  p.members.push(wt);
+  return p;
+};
+
+const PROJECTS = {
+  exampleProject,
+  sanMiguelProject,
+  eastLincolnTrussProject,
+  deckExampleProject,
+  fromDrawings,
+  trusses,
+};
 const BANNED = (l: string) =>
   /VERIFY|[—–,]\s*verify\b/.test(l) ||
   /valid only when|items to verify|requiring verification|before the package is issued|template values|not valid until|design aid|not for issue|#c00000/i.test(
@@ -116,5 +145,26 @@ describe("final issue", () => {
     expect(scrubText("Class 5 value (1,500 psf) is used. REQUIRED INPUT / VERIFY.")).toBe(
       "Class 5 value (1,500 psf) is used.",
     );
+  });
+});
+
+describe("validation items stay out of the final package", () => {
+  for (const make of [sanMiguelProject, eastLincolnTrussProject, deckExampleProject]) {
+    it(make().info.name, () => {
+      const p = make();
+      const items = validationItems(p, designProject(p));
+      expect(items.length).toBeGreaterThan(0);
+      expect(text({ ...p, info: { ...p.info, issue: "final" } })).not.toMatch(/ATTENTION/);
+      expect(text({ ...p, info: { ...p.info, issue: "check" } })).toMatch(/ATTENTION/);
+    });
+  }
+
+  it("lists failing members with the failing check", () => {
+    const p = sanMiguelProject();
+    const items = validationItems(p, designProject(p));
+    expect(items).toContainEqual({ where: "Package", text: "Members failing: F1" });
+    const f1 = items.filter((v) => v.where === "F1");
+    expect(f1.some((v) => v.text.startsWith("FAIL — ") && /D\/C \d/.test(v.text))).toBe(true);
+    expect(f1.every((v) => v.memberId === p.members.find((m) => m.mark === "F1")!.id)).toBe(true);
   });
 });
