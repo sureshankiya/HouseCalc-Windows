@@ -1,0 +1,24 @@
+# Windows installer: runs on every push to main, from the Actions tab (Run workflow), or on a tag v*.
+# Download HouseCalc-Windows from the run's Artifacts section.
+name: Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - run: bun run dist:desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HouseCalc-Windows
+          path: dist-desktop/*.exe
+          if-no-files-found: error

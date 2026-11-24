@@ -1,4 +1,12 @@
-# HouseCalc
+# HouseCalc for Windows
+
+Windows desktop edition of HouseCalc: a frozen copy of the calculator from
+[sureshankiya/CAL](https://github.com/sureshankiya/CAL) (@ 4535c4e) in a native window. Runs offline.
+
+**Install:** Actions → Windows build → latest run → Artifacts → `HouseCalc-Windows` → unzip →
+`HouseCalc Setup 1.0.1.exe` (installer) or `HouseCalc 1.0.1.exe` (portable, no install).
+The installer is not code-signed: on first run Windows SmartScreen asks — More info → Run anyway.
+
 
 Full-house structural calculation package for wood-frame dwellings — Tedds-style
 calculation sheets in the JoistCalc / StudCalc / TrussCalc report layout, to the
@@ -74,7 +82,11 @@ AI extraction needs an Anthropic API key set as `ANTHROPIC_API_KEY` in the envir
 bun install
 bun run dev          # http://localhost:8080 (in a container without IPv6: bunx vite dev --host 127.0.0.1)
 bun run build:static # browser-only single-page build (dist-artifact/housecalc.html); no AI extraction
+bun run desktop      # desktop app (Electron window around the static build; offline)
+bun run dist:desktop # Windows installer + portable .exe in dist-desktop/
 ```
+
+The Windows installer is built by the **Windows build** GitHub Action on every push to `main` (or Actions → Windows build → Run workflow); download it from the run's Artifacts. The desktop app has no AI drawing extraction (same as the static build); everything else — calculations, sheets, PDF / Word / HTML export, project files — runs locally.
 
 - **Example** loads a one-story example house; **San Miguel** and **Truss check** load the Phase 4 validation projects; **Deck + RW** loads the Phase 5 options project; **New** / **Open… / Save** manage project files (`*.housecalc.json`).
 - **Fill from .md…** fills the project — information, criteria, assemblies, levels, lateral, hardware and every member — from a Markdown input sheet (choose a `.md` file or paste it). **Export .md** writes the current project in the same format, which is also the template (`examples/example-house.housecalc.md`).
