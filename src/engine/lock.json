@@ -1,0 +1,146 @@
+{
+  "engine": {
+    "version": "1.0.1-wip.17",
+    "hash": "a2f45dca6bf9"
+  },
+  "data": {
+    "version": "1.1-wip.17",
+    "hash": "7ddd80934f91"
+  },
+  "lockedOn": "2026-11-24",
+  "history": [
+    {
+      "engine": "0.9.0",
+      "engineHash": "90e29bcc21b5",
+      "data": "0.9",
+      "dataHash": "c391cc58e338",
+      "lockedOn": "2026-10-08"
+    },
+    {
+      "engine": "1.0.0",
+      "engineHash": "5a2888bb1c71",
+      "data": "1.0",
+      "dataHash": "c391cc58e338",
+      "lockedOn": "2026-10-08"
+    },
+    {
+      "engine": "1.0.1-wip.1",
+      "engineHash": "b7dd8673126a",
+      "data": "1.1-wip.1",
+      "dataHash": "08120cd3cbfb",
+      "lockedOn": "2026-10-08"
+    },
+    {
+      "engine": "1.0.1-wip.2",
+      "engineHash": "544ad68f4165",
+      "data": "1.1-wip.2",
+      "dataHash": "e97263440aea",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.3",
+      "engineHash": "03a735c0344b",
+      "data": "1.1-wip.3",
+      "dataHash": "fb659e6bfd48",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.4",
+      "engineHash": "abcf40aab0d4",
+      "data": "1.1-wip.4",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.5",
+      "engineHash": "97952bdf2a85",
+      "data": "1.1-wip.5",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.6",
+      "engineHash": "ed9ed78f504a",
+      "data": "1.1-wip.6",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.7",
+      "engineHash": "d7937e7292b7",
+      "data": "1.1-wip.7",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.8",
+      "engineHash": "3727f081b998",
+      "data": "1.1-wip.8",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.9",
+      "engineHash": "5c7d9f1b6549",
+      "data": "1.1-wip.9",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-09"
+    },
+    {
+      "engine": "1.0.1-wip.10",
+      "engineHash": "9ef3aa380db3",
+      "data": "1.1-wip.10",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-10"
+    },
+    {
+      "engine": "1.0.1-wip.11",
+      "engineHash": "8cd66287d70a",
+      "data": "1.1-wip.11",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-11"
+    },
+    {
+      "engine": "1.0.1-wip.12",
+      "engineHash": "b56018f42afa",
+      "data": "1.1-wip.12",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-11"
+    },
+    {
+      "engine": "1.0.1-wip.13",
+      "engineHash": "6abb436e3252",
+      "data": "1.1-wip.13",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-11"
+    },
+    {
+      "engine": "1.0.1-wip.14",
+      "engineHash": "84d0a3437c0e",
+      "data": "1.1-wip.14",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-11"
+    },
+    {
+      "engine": "1.0.1-wip.15",
+      "engineHash": "e9e2e89e33cd",
+      "data": "1.1-wip.15",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-11"
+    },
+    {
+      "engine": "1.0.1-wip.16",
+      "engineHash": "897ae100d4ff",
+      "data": "1.1-wip.16",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-10-12"
+    },
+    {
+      "engine": "1.0.1-wip.17",
+      "engineHash": "a2f45dca6bf9",
+      "data": "1.1-wip.17",
+      "dataHash": "7ddd80934f91",
+      "lockedOn": "2026-11-24"
+    }
+  ]
+}
