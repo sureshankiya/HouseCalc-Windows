@@ -27,7 +27,7 @@ import { asdCombinations, relevantCombinations, strengthCombinations, type Combi
 import { fmt } from "../core/fmt";
 import { loadVector, zeroLoads, type LoadType } from "../core/loads";
 import { fromDefault, type AssumptionEntry } from "../core/provenance";
-import { bar, flexure, oneWayShear } from "../design/concrete";
+import { bar, flexure, oneWayShear, plainFlexure, plainOneWayShear } from "../design/concrete";
 import { governingCheck, type Check } from "../design/wood";
 import { asce7Of, type DesignContext, type ExtraLoad, type LoadLine } from "./common";
 import { eccentricBearing } from "./holdownFooting";
@@ -43,7 +43,12 @@ export interface RetainingWallInput {
   stem: Pick<MasonryWallInput, "material" | "t" | "cmu" | "concrete" | "fy" | "vertical" | "horizontal"> & {
     /** stem height above the top of the footing (≥ H_r), ft */
     height: number;
+    /** also check as plain concrete, no credit for the bars */
+    plain?: boolean;
   };
+  /** return walls: dead weight (lb) and footing area (ft²) added to sliding resistance over the wall length L (ft) */
+  returns?: { W: number; area: number; L: number };
+  proppedTop?: boolean;
   footing: {
     /** toe length in front of the stem, ft */
     toe: number;
@@ -67,6 +72,8 @@ export interface RetainingWallInput {
     efpSource: string;
     /** uniform vertical surcharge on the backfill, psf (live) */
     surcharge: number;
+    /** K_a for the surcharge (absent: efp / γ) */
+    Ka?: number;
     /** dynamic earth-pressure increment k × H (geotechnical report) */
     seismic?: { shape: "uniform" | "inverted"; k: number };
     /** soil cover over the toe, ft */
@@ -233,7 +240,7 @@ export function designRetainingWall(ctx: DesignContext, w: RetainingWallInput): 
   const hf = f.h / 12;
   const B = f.toe + ts + f.heel;
   const Ht = w.Hr + hf;
-  const Ka = s.efp / s.gamma;
+  const Ka = s.Ka ?? s.efp / s.gamma;
   const seis = s.seismic && s.seismic.k > 0 ? s.seismic : undefined;
   const lines: LoadLine[] = [];
   const flags: string[] = [];
@@ -345,7 +352,12 @@ export function designRetainingWall(ctx: DesignContext, w: RetainingWallInput): 
       const fac = (l: RwLateral) => (l.type === "E" ? 0.7 : 1);
       const H = parts.reduce((a, l) => a + fac(l) * l.P, 0);
       const Mo = parts.reduce((a, l) => a + fac(l) * l.P * l.y, 0);
-      const fr = s.friction !== undefined ? s.friction * Wr : Math.min((s.cohesion ?? 0) * B, 0.5 * Wr);
+      const ret = w.returns
+        ? (s.friction !== undefined
+            ? s.friction * w.returns.W
+            : Math.min((s.cohesion ?? 0) * w.returns.area, 0.5 * w.returns.W)) / w.returns.L
+        : 0;
+      const fr = (s.friction !== undefined ? s.friction * Wr : Math.min((s.cohesion ?? 0) * B, 0.5 * Wr)) + ret;
       const R = fr + Pp;
       stability.push({
         label: ["H", sq ? "surcharge" : "", sc ? "0.7E" : ""].filter(Boolean).join(" + "),
@@ -612,6 +624,33 @@ export function designRetainingWall(ctx: DesignContext, w: RetainingWallInput): 
     if (concreteStem && wallMinimum(c.name)) continue;
     checks.push({ ...c, name: `Stem — ${c.name}` });
   }
+  if (w.stem.plain && concreteStem) {
+    // plain concrete, no credit for the bars: 1.6H at the stem base, formed faces (h not reduced, 14.5.1.7)
+    const fcS = w.stem.concrete!.fc;
+    const Hs = w.Hr;
+    const Mu = 1.6 * ((s.efp * Hs ** 3) / 6 + (Ka * s.surcharge * Hs ** 2) / 2); // lb-ft/ft
+    const Vu = 1.6 * ((s.efp * Hs ** 2) / 2 + Ka * s.surcharge * Hs);
+    const Sm = (12 * w.stem.t ** 2) / 6;
+    const phiMn = plainFlexure(fcS, Sm) / 12;
+    const phiVn = plainOneWayShear(fcS, 12, w.stem.t);
+    ck({
+      name: `Stem — plain concrete flexure, no credit for bars (ACI 318-19 14.5.2.1): φM_n = 0.60 × 5√f'c S_m = ${fmt(phiMn, 0)} lb-ft/ft`,
+      demand: Mu,
+      capacity: phiMn,
+      ratio: Mu / phiMn,
+      combo: "1.6H",
+      unit: "lb-ft/ft",
+    });
+    ck({
+      name: `Stem — plain concrete shear (ACI 318-19 14.5.5.1): φV_n = 0.60 × (4/3)√f'c b h = ${fmt(phiVn, 0)} lb/ft`,
+      demand: Vu,
+      capacity: phiVn,
+      ratio: Vu / phiVn,
+      combo: "1.6H",
+      unit: "lb/ft",
+    });
+    if (seis) flags.push("Plain stem check excludes the seismic earth-pressure increment — reinforced stem governs");
+  }
   if (concreteStem) {
     const vMin = 0.0018 * 12 * w.stem.t;
     const hMin = 0.0018 * 12 * w.stem.t;
@@ -693,6 +732,22 @@ export function designRetainingWall(ctx: DesignContext, w: RetainingWallInput): 
   else if (/^[DEF]/.test(w.seismicSDC) && w.Hr > 6)
     flags.push(
       `SDC ${w.seismicSDC} and more than 6 ft of backfill: the geotechnical report must give the dynamic seismic earth pressure (IBC 1803.5.12)`,
+    );
+  if (w.returns)
+    assumptions.push(
+      fromDefault(
+        "Return walls",
+        `Sliding resistance of the returns added: W = ${fmt(w.returns.W, 0)} lb, footing area ${fmt(w.returns.area, 1)} ft², over L = ${fmt(w.returns.L, 2)} ft of wall`,
+        "IBC 1806.3",
+      ),
+    );
+  if (w.proppedTop)
+    assumptions.push(
+      fromDefault(
+        "Top restraint",
+        "Slab doweled into the top of the stem: prop ignored, stem designed as a cantilever (conservative)",
+        "EOR",
+      ),
     );
   if (bearing.some((b) => Math.abs(b.e) > B / 6))
     flags.push("Resultant outside the middle third in at least one combination — partial contact (heel or toe lifts)");

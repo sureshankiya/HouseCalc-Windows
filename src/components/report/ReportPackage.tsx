@@ -10,6 +10,7 @@ import {
 } from "../sheets/Phase4Sheets";
 import { CfsWallSheet, GuardPostSheet, RetainingWallSheet } from "../sheets/Phase5Sheets";
 import { metaFor } from "../sheets/common";
+import { CalcSheet } from "../sheets/CalcSheet";
 import { IJoistSheet } from "../sheets/IJoistSheet";
 import {
   AssumptionLogSheet,
@@ -222,6 +223,10 @@ function SheetSwitch({
           return <GuardPostSheet {...common} r={r} />;
         case "cfsWall":
           return <CfsWallSheet {...common} r={r} />;
+        case "sillAnchor":
+        case "lintel":
+        case "crawlSpace":
+          return <CalcSheet {...common} r={r} />;
         default:
           return (
             <WoodMemberSheet

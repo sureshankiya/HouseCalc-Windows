@@ -49,6 +49,7 @@ import {
   SpecificNotes,
 } from "./blocks";
 import { AxialRows, ColumnComboTable, CombinedRows, SectionRows } from "./ColumnRows";
+import { CalcRows } from "./CalcSheet";
 
 const psi = (v: number, d = 1) => `${fmt(v, d)} lb/in²`;
 
@@ -1003,6 +1004,7 @@ export function FootingSheet({ m, r, index, total, received }: SheetProps<Footin
           />
         </>
       ) : null}
+      {r.pierCalc ? <CalcRows calc={r.pierCalc} /> : null}
       <ChecksSummary checks={r.checks} />
       <MemberResult r={r} />
       <Divider />

@@ -72,6 +72,12 @@ export function spansText(r: AnyResult): string {
       return `${fmt(r.input.guardHeight, 0)} in. guard`;
     case "cfsWall":
       return `${fmtFtIn(r.input.height)} high`;
+    case "sillAnchor":
+      return `bolts @ ${fmt(r.input.bolt.spacing, 0)} in.`;
+    case "lintel":
+      return `${fmtFtIn(r.input.opening)} opening`;
+    case "crawlSpace":
+      return `${fmt(r.input.area, 0)} ft²`;
   }
   const s = r.kind === "rafter" ? [r.input.run] : r.input.spans;
   const base = s.map((x) => fmtFtIn(x)).join(" + ");

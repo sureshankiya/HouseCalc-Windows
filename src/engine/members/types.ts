@@ -32,7 +32,10 @@ export type MemberKind =
   | "shearPanel"
   | "retainingWall"
   | "guardPost"
-  | "cfsWall";
+  | "cfsWall"
+  | "sillAnchor"
+  | "lintel"
+  | "crawlSpace";
 
 export interface MemberReaction {
   support: number;

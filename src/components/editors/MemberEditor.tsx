@@ -38,6 +38,9 @@ import {
   type SteelTrussSpec,
   type RetainingWallSpec,
   type GuardPostSpec,
+  type SillAnchorSpec,
+  type LintelSpec,
+  type CrawlSpaceSpec,
   type CfsWallSpec,
 } from "@/engine/project";
 import { C_SHAPES, HSS_NAMES, ROUND_NAMES, STEEL_GRADES, W_SHAPES, steelShape } from "@/engine/data/steel";
@@ -1048,6 +1051,15 @@ export function MemberEditor({ p, m, onChange }: { p: Project; m: MemberSpec; on
       break;
     case "cfsWall":
       body = <CfsWallEditor p={p} m={m} upd={upd as Upd<CfsWallSpec>} />;
+      break;
+    case "sillAnchor":
+      body = <SillAnchorEditor p={p} m={m} upd={upd as Upd<SillAnchorSpec>} />;
+      break;
+    case "lintel":
+      body = <LintelEditor p={p} m={m} upd={upd as Upd<LintelSpec>} />;
+      break;
+    case "crawlSpace":
+      body = <CrawlSpaceEditor p={p} m={m} upd={upd as Upd<CrawlSpaceSpec>} />;
       break;
   }
   return (
@@ -2073,6 +2085,104 @@ function FootingEditor({ p, m, upd }: { p: Project; m: FootingSpec; upd: Upd<Foo
           label={`Frost depth applies (${p.criteria.soil.frostDepth ?? 0} in.); off = interior footing, 12 in. minimum`}
         />
       </Section>
+      {!strip ? (
+        <Section title="Concrete pier on the pad (size = post base / pier dimension above)">
+          <Check
+            checked={!!m.pier}
+            onChange={(v) =>
+              upd(
+                v
+                  ? { pier: { height: 24 }, c1: Math.max(m.c1, 12), c2: Math.max(m.c2 ?? m.c1, 12) }
+                  : { pier: undefined },
+              )
+            }
+            label="Pier on this pad (pier weight and the loads above carried to the pad)"
+          />
+          {m.pier ? (
+            <>
+              <Grid cols={4}>
+                <Num
+                  label="Pier height, top of pad to top (in)"
+                  value={m.pier.height}
+                  fallback={24}
+                  min={1}
+                  onChange={(v) => upd({ pier: { ...m.pier!, height: v } })}
+                />
+                <Field label="Vertical bars">
+                  <Select
+                    value={m.pier.bars?.size ?? "plain"}
+                    options={["plain", "#4", "#5", "#6"] as const}
+                    onChange={(v) =>
+                      upd({
+                        pier: {
+                          ...m.pier!,
+                          bars: v === "plain" ? undefined : { size: v, count: m.pier!.bars?.count ?? 4 },
+                        },
+                      })
+                    }
+                  />
+                </Field>
+                {m.pier.bars ? (
+                  <Num
+                    label="Number of bars"
+                    value={m.pier.bars.count}
+                    fallback={4}
+                    min={4}
+                    onChange={(v) => upd({ pier: { ...m.pier!, bars: { ...m.pier!.bars!, count: Math.round(v) } } })}
+                  />
+                ) : null}
+                {m.pier.bars ? (
+                  <Field label="Ties">
+                    <TextInput
+                      value={m.pier.ties ?? ""}
+                      onChange={(v) => upd({ pier: { ...m.pier!, ties: v || undefined } })}
+                    />
+                  </Field>
+                ) : null}
+              </Grid>
+              <Check
+                checked={!!m.pier.bearing}
+                onChange={(v) =>
+                  upd({ pier: { ...m.pier!, bearing: v ? { b: 3.5, l: 3.5, Fcperp: 565 } : undefined } })
+                }
+                label="Check wood bearing on the pier top"
+              />
+              {m.pier.bearing ? (
+                <Grid cols={4}>
+                  <Num
+                    label="Bearing width (in)"
+                    value={m.pier.bearing.b}
+                    fallback={3.5}
+                    min={0.5}
+                    onChange={(v) => upd({ pier: { ...m.pier!, bearing: { ...m.pier!.bearing!, b: v } } })}
+                  />
+                  <Num
+                    label="Bearing length (in)"
+                    value={m.pier.bearing.l}
+                    fallback={3.5}
+                    min={0.5}
+                    onChange={(v) => upd({ pier: { ...m.pier!, bearing: { ...m.pier!.bearing!, l: v } } })}
+                  />
+                  <Num
+                    label="F_c⊥ (psi)"
+                    value={m.pier.bearing.Fcperp}
+                    fallback={565}
+                    min={100}
+                    onChange={(v) => upd({ pier: { ...m.pier!, bearing: { ...m.pier!.bearing!, Fcperp: v } } })}
+                  />
+                  <Num
+                    label="C_b"
+                    value={m.pier.bearing.Cb ?? 1}
+                    fallback={1}
+                    min={1}
+                    onChange={(v) => upd({ pier: { ...m.pier!, bearing: { ...m.pier!.bearing!, Cb: v } } })}
+                  />
+                </Grid>
+              ) : null}
+            </>
+          ) : null}
+        </Section>
+      ) : null}
       <Section title="Reinforcement">
         <Grid cols={3}>
           <Field label={strip ? "Transverse bars" : "Bars each way"}>
@@ -4876,10 +4986,59 @@ function RetainingWallEditor({ p, m, upd }: { p: Project; m: RetainingWallSpec; 
           onChange={(v) => setSoil({ countToeSoil: v })}
           label="Count the soil over the toe as resisting sliding and overturning"
         />
+        <Grid cols={4}>
+          <Field label="K_a for surcharge (blank = efp / γ)">
+            <NumberInput value={s.Ka} allowEmpty min={0.1} max={1} onChange={(v) => setSoil({ Ka: v })} />
+          </Field>
+        </Grid>
         <Hint>
-          Unit weight, bearing, friction and lateral bearing come from the foundation criteria (soil class, IBC Table
-          1806.2). Enter the geotechnical values where a soils report exists.
+          Unit weight, bearing, friction or cohesion and lateral bearing come from the foundation criteria (soil class,
+          IBC Table 1806.2; Class 5 uses cohesion). Enter the geotechnical values where a soils report exists.
         </Hint>
+      </Section>
+      <Section title="Stoop / short wall options">
+        {m.stem.material === "concrete" ? (
+          <Check
+            checked={!!m.stem.plain}
+            onChange={(v) => upd({ stem: { ...m.stem, plain: v || undefined } })}
+            label="Also check the stem as plain concrete — no credit for bars (ACI 318-19 14.5.2, 14.5.5)"
+          />
+        ) : null}
+        <Check
+          checked={!!m.proppedTop}
+          onChange={(v) => upd({ proppedTop: v || undefined })}
+          label="Slab doweled into the top of the stem (prop ignored — cantilever design, conservative)"
+        />
+        <Check
+          checked={!!m.returns}
+          onChange={(v) => upd({ returns: v ? { W: 0, area: 0, L: 5 } : undefined })}
+          label="Return walls resist sliding"
+        />
+        {m.returns ? (
+          <Grid cols={3}>
+            <Num
+              label="Return walls + footings dead weight (lb)"
+              value={m.returns.W}
+              fallback={0}
+              min={0}
+              onChange={(v) => upd({ returns: { ...m.returns!, W: v } })}
+            />
+            <Num
+              label="Return footing area (ft²)"
+              value={m.returns.area}
+              fallback={0}
+              min={0}
+              onChange={(v) => upd({ returns: { ...m.returns!, area: v } })}
+            />
+            <Num
+              label="Wall length served (ft)"
+              value={m.returns.L}
+              fallback={5}
+              min={0.5}
+              onChange={(v) => upd({ returns: { ...m.returns!, L: v } })}
+            />
+          </Grid>
+        ) : null}
       </Section>
     </>
   );
@@ -5043,5 +5202,268 @@ function CfsWallEditor({ p, m, upd }: { p: Project; m: CfsWallSpec; upd: Upd<Cfs
         />
       </Section>
     </>
+  );
+}
+
+/** Numeric field with a fallback when cleared. */
+function Num({
+  label,
+  value,
+  fallback,
+  min,
+  onChange,
+}: {
+  label: string;
+  value: number | undefined;
+  fallback: number;
+  min?: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <Field label={label}>
+      <NumberInput value={value} min={min} onChange={(v) => onChange(v ?? fallback)} />
+    </Field>
+  );
+}
+
+function SillAnchorEditor({ p, m, upd }: { p: Project; m: SillAnchorSpec; upd: Upd<SillAnchorSpec> }) {
+  const dir = (k: "X" | "Y", label: string) => {
+    const d = m[k];
+    const set = (x: Partial<SillAnchorSpec["X"]>) => upd({ [k]: { ...d, ...x } } as Partial<SillAnchorSpec>);
+    return (
+      <Grid cols={4}>
+        <Num
+          label={`${label}: face width (ft)`}
+          value={d.face}
+          fallback={30}
+          min={1}
+          onChange={(v) => set({ face: v })}
+        />
+        <Num
+          label="Projected height above sill (ft)"
+          value={d.height}
+          fallback={12}
+          min={1}
+          onChange={(v) => set({ height: v })}
+        />
+        <Num
+          label="Sill lines parallel to wind (ft)"
+          value={d.sill}
+          fallback={60}
+          min={1}
+          onChange={(v) => set({ sill: v })}
+        />
+        <Field label="Leeward Cp (blank = by L/B)">
+          <NumberInput value={d.CpL} allowEmpty max={0} onChange={(v) => set({ CpL: v })} />
+        </Field>
+        <Field label="Seismic 0.7E (lb, blank = none)">
+          <NumberInput value={d.Eh} allowEmpty min={0} onChange={(v) => set({ Eh: v })} />
+        </Field>
+      </Grid>
+    );
+  };
+  return (
+    <Section title="Sill anchorage — wind sill shear">
+      <CommonFields p={p} m={m} upd={upd as Upd<MemberSpec>} />
+      <p className="text-xs">
+        Wind V = {p.criteria.wind.V} mph, Exposure {p.criteria.wind.exposure}, K_zt = {p.criteria.wind.Kzt} (project
+        criteria); SDC {p.criteria.seismic.SDC}.
+      </p>
+      <Grid cols={4}>
+        <Num label="Mean roof height h (ft)" value={m.h} fallback={15} min={1} onChange={(v) => upd({ h: v })} />
+        <Num label="K_e" value={m.Ke} fallback={1} min={0.5} onChange={(v) => upd({ Ke: v })} />
+        <Num label="Gust factor G" value={m.G} fallback={0.85} min={0.5} onChange={(v) => upd({ G: v })} />
+        <Num label="Windward Cp" value={m.CpW} fallback={0.8} min={0} onChange={(v) => upd({ CpW: v })} />
+      </Grid>
+      {dir("X", "Direction X")}
+      {dir("Y", "Direction Y")}
+      <Grid cols={4}>
+        <Num
+          label="Bolt diameter (in)"
+          value={m.bolt.d}
+          fallback={0.5}
+          min={0.375}
+          onChange={(v) => upd({ bolt: { ...m.bolt, d: v } })}
+        />
+        <Num
+          label="Bolt spacing (in)"
+          value={m.bolt.spacing}
+          fallback={72}
+          min={6}
+          onChange={(v) => upd({ bolt: { ...m.bolt, spacing: v } })}
+        />
+        <Num
+          label="Embedment (in)"
+          value={m.bolt.embed}
+          fallback={7}
+          min={1}
+          onChange={(v) => upd({ bolt: { ...m.bolt, embed: v } })}
+        />
+        <Num label="Concrete F_em (psi)" value={m.Fem} fallback={7500} min={1000} onChange={(v) => upd({ Fem: v })} />
+      </Grid>
+      <Grid cols={4}>
+        <Num
+          label="Sill thickness (in)"
+          value={m.sill.t}
+          fallback={1.5}
+          min={0.5}
+          onChange={(v) => upd({ sill: { ...m.sill, t: v } })}
+        />
+        <Num
+          label="Sill specific gravity G"
+          value={m.sill.G}
+          fallback={0.55}
+          min={0.3}
+          onChange={(v) => upd({ sill: { ...m.sill, G: v } })}
+        />
+        <Field label="Sill species">
+          <TextInput value={m.sill.species} onChange={(v) => upd({ sill: { ...m.sill, species: v } })} />
+        </Field>
+        <Num label="C_D" value={m.CD} fallback={1.6} min={0.9} onChange={(v) => upd({ CD: v })} />
+      </Grid>
+    </Section>
+  );
+}
+
+function LintelEditor({ p, m, upd }: { p: Project; m: LintelSpec; upd: Upd<LintelSpec> }) {
+  return (
+    <Section title="Opening lintel in a concrete foundation wall">
+      <CommonFields p={p} m={m} upd={upd as Upd<MemberSpec>} />
+      <Grid cols={4}>
+        <Num
+          label="Clear opening (ft)"
+          value={m.opening}
+          fallback={3}
+          min={0.5}
+          onChange={(v) => upd({ opening: v })}
+        />
+        <Num
+          label="Bearing each side (in)"
+          value={m.bearing}
+          fallback={8}
+          min={2}
+          onChange={(v) => upd({ bearing: v })}
+        />
+        <Num label="Lintel depth h (in)" value={m.h} fallback={16} min={4} onChange={(v) => upd({ h: v })} />
+        <Num label="Width b (in)" value={m.b} fallback={8} min={4} onChange={(v) => upd({ b: v })} />
+      </Grid>
+      <Grid cols={4}>
+        <Field label="Bottom bars">
+          <Select
+            value={m.bars.size}
+            options={["#3", "#4", "#5", "#6"] as const}
+            onChange={(v) => upd({ bars: { ...m.bars, size: v } })}
+          />
+        </Field>
+        <Num
+          label="Number of bars"
+          value={m.bars.count}
+          fallback={2}
+          min={1}
+          onChange={(v) => upd({ bars: { ...m.bars, count: Math.round(v) } })}
+        />
+        <Num label="Clear cover (in)" value={m.cover} fallback={1.5} min={0.75} onChange={(v) => upd({ cover: v })} />
+        <Check checked={!!m.stirrups} onChange={(v) => upd({ stirrups: v || undefined })} label="Stirrups provided" />
+      </Grid>
+      <p className="text-xs">
+        f&apos;c = {p.criteria.concrete.fc} psi, f_y = {p.criteria.concrete.fy} psi (project criteria). Wall, floor and
+        roof loads: line loads below or links from the members above.
+      </p>
+      <Collapsible title={`Line loads (${m.extra.length})`} open={m.extra.length > 0}>
+        <ExtraLoadsEditor extra={m.extra} onChange={(e) => upd({ extra: e })} />
+      </Collapsible>
+    </Section>
+  );
+}
+
+function CrawlSpaceEditor({ p, m, upd }: { p: Project; m: CrawlSpaceSpec; upd: Upd<CrawlSpaceSpec> }) {
+  return (
+    <Section title="Crawl space — ventilation, access and clearances">
+      <CommonFields p={p} m={m} upd={upd as Upd<MemberSpec>} />
+      <Grid cols={4}>
+        <Num
+          label="Crawl area per unit (ft²)"
+          value={m.area}
+          fallback={1000}
+          min={1}
+          onChange={(v) => upd({ area: v })}
+        />
+        <Num
+          label="Number of vents"
+          value={m.vents.count}
+          fallback={4}
+          min={0}
+          onChange={(v) => upd({ vents: { ...m.vents, count: Math.round(v) } })}
+        />
+        <Num
+          label="Net area per vent (in²)"
+          value={m.vents.netArea}
+          fallback={50}
+          min={0}
+          onChange={(v) => upd({ vents: { ...m.vents, netArea: v } })}
+        />
+        <Check
+          checked={m.vents.nearCorners}
+          onChange={(v) => upd({ vents: { ...m.vents, nearCorners: v } })}
+          label="Vent within 3 ft of each corner"
+        />
+      </Grid>
+      <Check
+        checked={m.vaporRetarder}
+        onChange={(v) => upd({ vaporRetarder: v })}
+        label="Class I vapor retarder on the ground (1/1,500)"
+      />
+      <Grid cols={4}>
+        <Field label="Access through">
+          <Select
+            value={m.access.through}
+            options={[
+              { value: "wall", label: "Perimeter wall (16 × 24 min.)" },
+              { value: "floor", label: "Floor (18 × 24 min.)" },
+            ]}
+            onChange={(v) => upd({ access: { ...m.access, through: v } })}
+          />
+        </Field>
+        <Num
+          label="Access width (in)"
+          value={m.access.w}
+          fallback={24}
+          min={1}
+          onChange={(v) => upd({ access: { ...m.access, w: v } })}
+        />
+        <Num
+          label="Access height (in)"
+          value={m.access.h}
+          fallback={18}
+          min={1}
+          onChange={(v) => upd({ access: { ...m.access, h: v } })}
+        />
+        <Field label="Access location">
+          <TextInput value={m.access.location} onChange={(v) => upd({ access: { ...m.access, location: v } })} />
+        </Field>
+      </Grid>
+      <Grid cols={4}>
+        <Num
+          label="Top of stem above interior grade (in)"
+          value={m.stemAboveGrade}
+          fallback={16}
+          min={0}
+          onChange={(v) => upd({ stemAboveGrade: v })}
+        />
+        <Num label="Sill thickness (in)" value={m.sill} fallback={1.5} min={0} onChange={(v) => upd({ sill: v })} />
+        <Num
+          label="Girder depth (in)"
+          value={m.girderDepth}
+          fallback={9.25}
+          min={0}
+          onChange={(v) => upd({ girderDepth: v })}
+        />
+        <Check
+          checked={m.treated}
+          onChange={(v) => upd({ treated: v })}
+          label="Framing within clearances treated / durable"
+        />
+      </Grid>
+    </Section>
   );
 }

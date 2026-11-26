@@ -66,6 +66,9 @@ const KIND_ORDER: Record<string, number> = {
   retainingWall: 10.9,
   guardPost: 4.6,
   cfsWall: 6.5,
+  sillAnchor: 9.7,
+  lintel: 9.9,
+  crawlSpace: 11,
 };
 
 function orderKey(m: MemberSpec): number {
