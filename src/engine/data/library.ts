@@ -106,15 +106,15 @@ export const TABLES: Record<string, TableMeta> = {
   "ibc-1607.1": {
     id: "ibc-1607.1",
     title: "Minimum uniformly distributed live loads",
-    source: "IBC / CBC Table 1607.1",
-    edition: "2021 / 2024 IBC",
+    source: "{BC} Table 1607.1",
+    edition: "{BC}",
     status: "unverified",
   },
   "ibc-1604.3": {
     id: "ibc-1604.3",
     title: "Deflection limits",
-    source: "IBC / CBC Table 1604.3",
-    edition: "2021 / 2024 IBC",
+    source: "{BC} Table 1604.3",
+    edition: "{BC}",
     status: "unverified",
   },
   "sdpws-4.3A": {
@@ -151,15 +151,15 @@ export const TABLES: Record<string, TableMeta> = {
   "ibc-1806.2": {
     id: "ibc-1806.2",
     title: "Presumptive load-bearing values",
-    source: "IBC / CBC Table 1806.2",
-    edition: "2021 / 2024 IBC",
+    source: "{BC} Table 1806.2",
+    edition: "{BC}",
     status: "unverified",
   },
   "ibc-1809.7": {
     id: "ibc-1809.7",
     title: "Prescriptive footings for light-frame construction",
-    source: "IBC / CBC Table 1809.7",
-    edition: "2021 / 2024 IBC",
+    source: "{BC} Table 1809.7",
+    edition: "{BC}",
     status: "unverified",
   },
   "asce7-12.2-1": {

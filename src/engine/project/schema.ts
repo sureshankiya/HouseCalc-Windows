@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { CYCLE_IDS } from "../core/codes";
+import { CYCLE_ALIASES, CYCLE_IDS } from "../core/codes";
 
 const num = z.number().finite();
 const pos = num.positive();
@@ -286,6 +286,8 @@ export const beamSpecSchema = z.object({
   fire: fireSchema.optional(),
   plyConnection: plyConnectionSchema.optional(),
   openings: z.array(openingSchema).optional(),
+  /** plies spliced over the supports: one span designed simple; interior reaction 2 × R × factor */
+  spliced: z.object({ factor: pos.default(1.25) }).optional(),
 });
 
 export const studPackSchema = z.object({
@@ -404,6 +406,17 @@ export const footingSpecSchema = z.object({
   stories: z.number().int().min(1).max(3),
   /** pad under a post cast as a thickened slab-on-grade */
   thickened: z.boolean().optional(),
+  /** project frost depth applies (absent: strip footings yes, pads no — interior crawl-space pads) */
+  frost: z.boolean().optional(),
+  /** pad: concrete pier c1 × c2 on the pad */
+  pier: z
+    .object({
+      height: pos,
+      bars: z.object({ size: z.string(), count: z.number().int().min(4) }).optional(),
+      ties: z.string().optional(),
+      bearing: z.object({ b: pos, l: pos, Fcperp: pos, Cb: pos.optional() }).optional(),
+    })
+    .optional(),
 });
 
 export const shearWallSpecSchema = z.object({
@@ -776,7 +789,13 @@ export const retainingWallSpecSchema = z.object({
     fy: pos,
     vertical: masonryWallSpecSchema.shape.vertical,
     horizontal: masonryWallSpecSchema.shape.horizontal,
+    /** also check the stem as plain concrete, no credit for the bars (ACI 318-19 14.5.2, 14.5.5) */
+    plain: z.boolean().optional(),
   }),
+  /** return walls: dead weight and footing area added to the sliding resistance, over the wall length L */
+  returns: z.object({ W: nonneg, area: nonneg, L: pos }).optional(),
+  /** slab doweled into the top of the stem (prop ignored: cantilever design is conservative) */
+  proppedTop: z.boolean().optional(),
   footing: z.object({
     toe: nonneg,
     heel: pos,
@@ -791,6 +810,8 @@ export const retainingWallSpecSchema = z.object({
     efp: pos,
     efpSource: z.string(),
     surcharge: nonneg.default(0),
+    /** K_a for the surcharge (absent: efp / γ) */
+    Ka: pos.optional(),
     seismic: z.object({ shape: z.enum(["uniform", "inverted"]), k: nonneg }).optional(),
     toeCover: nonneg.default(0),
     countToeSoil: z.boolean().default(false),
@@ -821,6 +842,59 @@ export const guardPostSpecSchema = z.object({
     source: z.string(),
     verified: z.boolean(),
   }),
+});
+
+const sillDirSchema = z.object({
+  face: pos,
+  height: pos,
+  sill: pos,
+  CpL: z.number().max(0).optional(),
+  Eh: nonneg.optional(),
+});
+
+/** SA — sill anchorage: wind (and entered seismic) sill shear vs anchor bolts (NDS 12.3.1, wood to concrete) */
+export const sillAnchorSpecSchema = z.object({
+  kind: z.literal("sillAnchor"),
+  ...common,
+  /** mean roof height, ft */
+  h: pos,
+  Ke: pos.default(1),
+  G: pos.default(0.85),
+  CpW: pos.default(0.8),
+  X: sillDirSchema,
+  Y: sillDirSchema,
+  bolt: z.object({ d: pos, spacing: pos, embed: pos }),
+  sill: z.object({ t: pos, G: pos, species: z.string() }),
+  Fem: pos.default(7500),
+  CD: pos.default(1.6),
+});
+
+/** LN — opening lintel in a concrete foundation wall */
+export const lintelSpecSchema = z.object({
+  kind: z.literal("lintel"),
+  ...common,
+  opening: pos,
+  bearing: pos,
+  h: pos,
+  b: pos,
+  bars: z.object({ size: z.string(), count: z.number().int().min(1) }),
+  cover: pos,
+  stirrups: z.boolean().optional(),
+  extra: z.array(extraLoadSchema).default([]),
+});
+
+/** CR — crawl space ventilation, access and clearances (IRC R408 / R317) */
+export const crawlSpaceSpecSchema = z.object({
+  kind: z.literal("crawlSpace"),
+  ...common,
+  area: pos,
+  vaporRetarder: z.boolean(),
+  vents: z.object({ count: z.number().int().min(0), netArea: nonneg, nearCorners: z.boolean() }),
+  access: z.object({ through: z.enum(["wall", "floor"]), w: pos, h: pos, location: z.string().default("") }),
+  stemAboveGrade: nonneg,
+  sill: nonneg,
+  girderDepth: nonneg,
+  treated: z.boolean().default(false),
 });
 
 export const cfsWallSpecSchema = z.object({
@@ -963,6 +1037,9 @@ export const memberSpecSchema = z.discriminatedUnion("kind", [
   retainingWallSpecSchema,
   guardPostSpecSchema,
   cfsWallSpecSchema,
+  sillAnchorSpecSchema,
+  lintelSpecSchema,
+  crawlSpaceSpecSchema,
 ]);
 
 export const hardwareItemSchema = z.object({
@@ -1141,7 +1218,7 @@ export const projectSchema = z.object({
     /** printed issue (absent = "final"): "final" = issued calculations (no VERIFY / review wording); "check" = working copy */
     issue: z.enum(["final", "check"]).optional(),
   }),
-  cycleId: z.enum(CYCLE_IDS),
+  cycleId: z.preprocess((v) => (typeof v === "string" && CYCLE_ALIASES[v]) || v, z.enum(CYCLE_IDS)),
   criteria: z.object({
     riskCategory: z.enum(["I", "II", "III", "IV"]),
     liveBasis: z.enum(["IRC", "IBC"]),
@@ -1156,6 +1233,8 @@ export const projectSchema = z.object({
       class: z.enum(["1", "2", "3", "4", "5"]).optional(),
       density: pos.default(120),
       frostDepth: nonneg.optional(),
+      /** fill compaction for the foundation notes (blank = "90 % relative compaction (ASTM D1557)") */
+      compaction: z.string().optional(),
     }),
     concrete: z
       .object({
@@ -1241,6 +1320,9 @@ export type WoodTrussSpec = z.infer<typeof woodTrussSpecSchema>;
 export type SteelTrussSpec = z.infer<typeof steelTrussSpecSchema>;
 export type RetainingWallSpec = z.infer<typeof retainingWallSpecSchema>;
 export type GuardPostSpec = z.infer<typeof guardPostSpecSchema>;
+export type SillAnchorSpec = z.infer<typeof sillAnchorSpecSchema>;
+export type LintelSpec = z.infer<typeof lintelSpecSchema>;
+export type CrawlSpaceSpec = z.infer<typeof crawlSpaceSpecSchema>;
 export type CfsWallSpec = z.infer<typeof cfsWallSpecSchema>;
 export type LateralSpec = z.infer<typeof lateralSchema>;
 export type WallLineOpening = z.infer<typeof wallLineOpeningSchema>;

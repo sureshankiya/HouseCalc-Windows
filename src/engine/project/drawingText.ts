@@ -182,8 +182,11 @@ export function readDrawingText(name: string, pages: DrawingPageText[]): Drawing
       found.push(`${what}: L/${m[1]} / L/${m[2]}`);
     }
   }
-  const code = /\b(20(?:19|22|25))\s*(?:CALIFORNIA BUILDING CODE|CBC)\b/i.exec(all)?.[1];
-  if (code) found.push(`Code: ${code} CBC`);
+  const cm =
+    /\b(20(?:19|22|25))\s*(?:CALIFORNIA BUILDING CODE|CBC)\b/i.exec(all) ??
+    /\b(20(?:18|21|24))\s*(?:INTERNATIONAL (?:BUILDING|RESIDENTIAL) CODE|IBC|IRC)\b/i.exec(all);
+  const code = cm ? `${cm[1]} ${/CALIFORNIA|CBC/i.test(cm[0]) ? "CBC" : "IRC / IBC"}` : undefined;
+  if (code) found.push(`Code: ${code}`);
 
   /* ----------------------------------------------------------- beams */
   const beams: string[][] = [];
@@ -473,7 +476,7 @@ export function readDrawingText(name: string, pages: DrawingPageText[]): Drawing
     `- Source: ${name}, ${pages.length} pages; text layer read in the browser (no AI, no OCR).`,
     ...(addr ? [`- Printed project: ${addr}.`] : []),
     ...(date ? [`- Printed issue date: ${date}.`] : []),
-    ...(code ? [`- ${code} CBC (as printed).`] : []),
+    ...(code ? [`- ${code} (as printed).`] : []),
     "",
     "## 3. Design basis and loads as printed",
     "",

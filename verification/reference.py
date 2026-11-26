@@ -128,9 +128,9 @@ CL = beam_stability(FbE, Fbstar)
 case("V5_glulam", CV=CV, CL=CL, Fbp=Fbstar * min(CV, CL), le=le, RB=RB)
 
 # ------------------------------- V6 TJI 210 11-7/8 @ 16, 16 ft, 15 + 40 psf + sw
-wT = 55 * 16 / 12 + 2.9
+wT = 55 * 16 / 12 + 2.8
 wLi = 40 * 16 / 12
-EIj, K = 348e6, 5.3e6
+EIj, K = 315e6, 5.3e6
 Lj = 16 * 12
 bend = lambda q: 5 * (q / 12) * Lj ** 4 / (384 * EIj)
 shear = lambda q: (q / 12) * Lj ** 2 / K

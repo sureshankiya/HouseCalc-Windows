@@ -49,6 +49,7 @@ import {
   SpecificNotes,
 } from "./blocks";
 import { AxialRows, ColumnComboTable, CombinedRows, SectionRows } from "./ColumnRows";
+import { CalcRows } from "./CalcSheet";
 
 const psi = (v: number, d = 1) => `${fmt(v, d)} lb/in²`;
 
@@ -407,7 +408,9 @@ export function WallSheet({ m, r, index, total, received, connections }: SheetPr
           ["Base load to foundation", `${f0(r.reactions[0].maxDown)} lb/ft max (${r.reactions[0].maxDownCombo})`],
           [
             "Connections",
-            connections?.length ? connections.join("; ") : "Stud-to-plate nailing per IBC / CBC Table 2304.10.2",
+            connections?.length
+              ? connections.join("; ")
+              : `Stud-to-plate nailing per ${m.cycle.building} Table 2304.10.2`,
           ],
           ["Field verification", verifyText(r)],
         ]}
@@ -1001,6 +1004,7 @@ export function FootingSheet({ m, r, index, total, received }: SheetProps<Footin
           />
         </>
       ) : null}
+      {r.pierCalc ? <CalcRows calc={r.pierCalc} /> : null}
       <ChecksSummary checks={r.checks} />
       <MemberResult r={r} />
       <Divider />

@@ -86,7 +86,21 @@ const trusses = () => {
   return p;
 };
 
+/** Example house on the 2024 IRC with the crawl-space members: SA, LN, CR and a pier on a pad. */
+const crawl = () => {
+  const p = exampleProject();
+  p.cycleId = "IBC2024";
+  const s = p.structures[0];
+  const lv = s.levels[0];
+  for (const k of ["sillAnchor", "lintel", "crawlSpace"] as const) p.members.push(newMemberSpec(p, k, s.id, lv.id));
+  const pad = newMemberSpec(p, "pad", s.id, lv.id);
+  if (pad.kind === "footing") pad.pier = { height: 24, bearing: { b: 5.5, l: 3.5, Fcperp: 565 } };
+  p.members.push(pad);
+  return p;
+};
+
 const PROJECTS = {
+  crawl,
   exampleProject,
   sanMiguelProject,
   eastLincolnTrussProject,

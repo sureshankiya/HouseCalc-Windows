@@ -50,6 +50,9 @@ import { designWoodTruss, type WoodTrussResult } from "../members/woodTruss";
 import { designSteelTruss, type SteelTrussResult } from "../members/steelTruss";
 import { designRetainingWall, type RetainingWallResult } from "../members/retainingWall";
 import { designGuardPost, type GuardPostResult } from "../members/guardPost";
+import { designSillAnchor, type SillAnchorResult } from "../members/sillAnchor";
+import { designLintel, type LintelResult } from "../members/lintel";
+import { designCrawlSpace, type CrawlSpaceResult } from "../members/crawlSpace";
 import { designCfsWall, type CfsWallResult } from "../members/cfsWall";
 import {
   designBasePlateMember,
@@ -90,7 +93,10 @@ export type AnyResult =
   | RetainingWallResult
   | GuardPostResult
   | CfsWallResult
-  | ShearPanelResult;
+  | ShearPanelResult
+  | SillAnchorResult
+  | LintelResult
+  | CrawlSpaceResult;
 
 export interface DesignOutcome {
   spec: MemberSpec;
@@ -485,6 +491,23 @@ function designOne(
         ...m,
         seismic: ["C", "D", "E", "F"].includes(p.criteria.seismic.SDC),
       });
+    case "sillAnchor":
+      return designSillAnchor(ctx, {
+        ...m,
+        V: p.criteria.wind.V,
+        exposure: p.criteria.wind.exposure,
+        Kzt: p.criteria.wind.Kzt,
+        SDC: p.criteria.seismic.SDC,
+      });
+    case "lintel":
+      return designLintel(ctx, {
+        ...m,
+        fc: p.criteria.concrete.fc,
+        fy: p.criteria.concrete.fy,
+        extra: [...m.extra, ...linked],
+      });
+    case "crawlSpace":
+      return designCrawlSpace(ctx, m);
   }
 }
 

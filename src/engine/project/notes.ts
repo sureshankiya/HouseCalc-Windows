@@ -78,11 +78,15 @@ export function generateNotes(p: Project, d: ProjectDesign): GeneratedNotes {
     sections.push({
       title: "Foundations and concrete",
       notes: [
-        "Footings bear on undisturbed native soil or engineered fill compacted to at least 90 % relative compaction (ASTM D1557) unless the soils report requires more; bottom of footings at least 12 in. below lowest adjacent grade (IBC 1809.4) or below frost depth.",
+        `Footings bear on undisturbed native soil or engineered fill compacted to at least ${crit.soil.compaction || "90 % relative compaction (ASTM D1557)"} unless the soils report requires more; bottom of footings at least 12 in. below lowest adjacent grade (IBC 1809.4) or below frost depth.`,
         `Concrete: f'c = ${fmt(crit.concrete.fc, 0)} psi at 28 days${conc.length ? ` (walls ${[...new Set(conc.map((r) => fmt(r.input.concrete!.fc, 0)))].join(" / ")} psi)` : ""}, normal weight, mix per ACI 318 Ch. 19 for the exposure classes on the drawings; maximum aggregate 3/4 in.`,
         `Reinforcing steel: ASTM A615 Grade ${fmt(crit.concrete.fy / 1000, 0)}, deformed; clear cover ${fmt(crit.concrete.cover, 0)} in. for concrete cast against earth, 1-1/2 in. (No. 5 and smaller) for formed surfaces exposed to earth or weather (ACI 318 20.5.1.3); lap splices and hooks per ACI 318 Ch. 25.`,
         "Anchor bolts and hold-down anchors: set and tied in place before concrete is placed; do not wet-set.",
-        "Contractor to verify all existing foundations to remain and report damage or discrepancies to the Engineer of Record before construction.",
+        ...(p.members.some((m) => m.status !== "new")
+          ? [
+              "Contractor to verify all existing foundations to remain and report damage or discrepancies to the Engineer of Record before construction.",
+            ]
+          : []),
       ],
     });
   }
@@ -307,7 +311,7 @@ export function generateNotes(p: Project, d: ProjectDesign): GeneratedNotes {
   sections.push({
     title: "General",
     notes: [
-      "Contractor to verify all dimensions and existing conditions; report discrepancies to the Engineer of Record before proceeding.",
+      "Contractor shall check all dimensions and site conditions and report any discrepancy to the engineer before proceeding.",
       "Temporary bracing and shoring during construction are the contractor's responsibility.",
     ],
   });

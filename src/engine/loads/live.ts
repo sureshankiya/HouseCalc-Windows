@@ -5,6 +5,8 @@
  * Roof live load reduction per ASCE 7 §4.8.2 (identical in ASCE 7-16 and 7-22).
  */
 
+import type { CodeCycle } from "../core/codes";
+
 export type LiveBasis = "IRC" | "IBC";
 
 export type LiveUse =
@@ -137,11 +139,15 @@ export const liveDef = (use: LiveUse): LiveLoadDef => {
   return d;
 };
 
-export function liveLoad(use: LiveUse, basis: LiveBasis): { psf: number; ref: string; label: string } {
+export function liveLoad(
+  use: LiveUse,
+  basis: LiveBasis,
+  c?: Pick<CodeCycle, "building" | "residential">,
+): { psf: number; ref: string; label: string } {
   const d = liveDef(use);
   return basis === "IRC"
-    ? { psf: d.irc, ref: `IRC / CRC ${d.refIrc}`, label: d.label }
-    : { psf: d.ibc, ref: `IBC / CBC ${d.refIbc}`, label: d.label };
+    ? { psf: d.irc, ref: `${c?.residential ?? "IRC"} ${d.refIrc}`, label: d.label }
+    : { psf: d.ibc, ref: `${c?.building ?? "IBC"} ${d.refIbc}`, label: d.label };
 }
 
 /** Guard and handrail loads, both bases (IRC Table R301.5; IBC 1607.9). */

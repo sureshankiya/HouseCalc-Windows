@@ -33,6 +33,7 @@ import {
 import { governingCheck, type Check } from "../design/wood";
 import { MIN_FOOTING_DEPTH, minFooting } from "../data/soil";
 import { asce7Of, type DesignContext, type ExtraLoad, type LoadLine } from "./common";
+import type { CalcLine } from "./sillAnchor";
 import type { MemberResultBase } from "./types";
 
 export interface FootingRebar {
@@ -76,9 +77,23 @@ export interface FootingInput {
   qaVerify?: boolean;
   soilDensity: number;
   frostDepth?: number;
+  /** frost depth applies to this footing (absent: strip yes, pad no); otherwise 12 in. minimum (IBC 1809.4) */
+  frost?: boolean;
   stories: number;
   /** pad cast as a thickened slab-on-grade under a post or point load */
   thickened?: boolean;
+  /** pad: concrete pier c1 × c2 on the pad (loads above pass through it) */
+  pier?: PierInput;
+}
+
+export interface PierInput {
+  /** top of pad to top of pier, in */
+  height: number;
+  /** vertical bars (absent: plain concrete) */
+  bars?: { size: string; count: number };
+  ties?: string;
+  /** wood post / plate / beam bearing on the pier top */
+  bearing?: { b: number; l: number; Fcperp: number; Cb?: number };
 }
 
 export interface FootingRow {
@@ -116,6 +131,8 @@ export interface FootingResult extends MemberResultBase {
     oneWay: { Vu: number; phiVn: number; at: number };
     twoWay?: { Vu: number; phiVn: number; bo: number; vc?: number };
   };
+  /** concrete pier on the pad: printed calculation rows */
+  pierCalc?: CalcLine[];
 }
 
 /**
@@ -186,10 +203,16 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
   const area = B * L;
   const { v: applied, lines, at: govSeg, spread } = totalsByType(f.extra, f.type, f.h);
   const soilOver = f.soilOver ?? Math.max(0, f.depth - f.h - (f.stem ? f.stem.height : 0));
+  const pier = !strip ? f.pier : undefined;
+  const pierArea = pier ? (f.c1 * (f.c2 ?? f.c1)) / 144 : 0;
   const wFooting = 150 * (f.h / 12) * area;
-  const wStem = f.stem ? 150 * (f.stem.width / 12) * (f.stem.height / 12) * L : 0;
+  const wStem = f.stem
+    ? 150 * (f.stem.width / 12) * (f.stem.height / 12) * L
+    : pier
+      ? 150 * pierArea * (pier.height / 12)
+      : 0;
   const stemFoot = f.stem ? f.stem.width / 12 : strip ? f.c1 / 12 : 0;
-  const wSoil = f.soilDensity * (soilOver / 12) * Math.max(0, area - (strip ? stemFoot * L : 0));
+  const wSoil = f.soilDensity * (soilOver / 12) * Math.max(0, area - (strip ? stemFoot * L : pierArea));
   const weights = { footing: wFooting, stem: wStem, soil: wSoil, total: wFooting + wStem + wSoil };
   const unit = strip ? "plf" : "lb";
   lines.push({
@@ -199,7 +222,15 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
     value: wFooting,
     unit,
   });
-  if (wStem > 0)
+  if (pier)
+    lines.push({
+      type: "D",
+      label: "Concrete pier",
+      expr: `150 pcf × ${fmt(f.c1, 1)} × ${fmt(f.c2 ?? f.c1, 1)} in × ${fmt(pier.height / 12, 3)} ft`,
+      value: wStem,
+      unit,
+    });
+  else if (wStem > 0)
     lines.push({
       type: "D",
       label: "Stem wall",
@@ -436,9 +467,10 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
       unit: "in",
     });
   }
-  const minDepth = Math.max(MIN_FOOTING_DEPTH, f.frostDepth ?? 0);
+  const frost = (f.frost ?? f.type === "strip") ? (f.frostDepth ?? 0) : 0;
+  const minDepth = Math.max(MIN_FOOTING_DEPTH, frost);
   checks.push({
-    name: `Depth below grade ≥ ${fmt(minDepth, 0)} in. (IBC 1809.4${f.frostDepth ? ", frost" : ""})`,
+    name: `Depth below grade ≥ ${fmt(minDepth, 0)} in. (IBC 1809.4${frost ? ", frost" : f.frostDepth ? "; interior footing, frost depth not applied" : ""})`,
     category: "detailing",
     demand: minDepth,
     capacity: f.depth,
@@ -449,6 +481,7 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
     unit: "in",
   });
 
+  const pierCalc = pier ? pierChecks(f, pier, applied, wStem, lrfd, asd, checks, assumptions) : undefined;
   const flags: string[] = [];
   if (f.longitudinal)
     flags.push(
@@ -493,5 +526,184 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
     strength,
     quGov,
     concrete,
+    pierCalc,
   };
+}
+
+/**
+ * Concrete pier on the pad (ACI 318-19):
+ *  - plain: φP_n = 0.60 × 0.60 f'c [1 − (ℓ_c / 32h)²] A_1 (Eq. 14.5.3.1), pedestal height ≤ 3 × least dimension (Ch. 14)
+ *  - reinforced: φP_n,max = 0.65 × 0.80 [0.85 f'c (A_g − A_st) + f_y A_st] (22.4.2.1, Table 22.4.2.1, 21.2.2),
+ *    ρ_g ≥ 0.01 (10.6.1.1), k ℓ_u / r ≤ 22 (6.2.5.1), k = 1.0 (top braced by the floor framing), r = 0.3h
+ *  - bearing on the pier top: concrete φB_n = φ 0.85 f'c A_1 √(A_2/A_1) ≤ 2 (14.5.6 / 22.8.3); wood
+ *    f_c⊥ = P / A_b ≤ F_c⊥ C_b (NDS 3.10), service loads
+ */
+function pierChecks(
+  f: FootingInput,
+  pier: PierInput,
+  applied: LoadVector,
+  wPier: number,
+  lrfd: Combination[],
+  asd: Combination[],
+  checks: Check[],
+  assumptions: AssumptionEntry[],
+): CalcLine[] {
+  const c1 = f.c1;
+  const c2 = f.c2 ?? f.c1;
+  const hMin = Math.min(c1, c2);
+  const Ag = c1 * c2;
+  const lc = pier.height;
+  const withPier = addLoads(applied, loadVector({ D: wPier }));
+  const top = lrfd.map((c) => ({ c, P: combine(withPier, c), Pb: combine(applied, c) }));
+  const gov = top.reduce((a, b) => (b.P > a.P ? b : a));
+  const govB = top.reduce((a, b) => (b.Pb > a.Pb ? b : a));
+  const svc = asd.map((c) => ({ c, P: combine(applied, c) })).reduce((a, b) => (b.P > a.P ? b : a));
+  const out: CalcLine[] = [
+    {
+      head: "Concrete pier — ACI 318-19",
+      desc: "Pier",
+      expr: `${fmt(c1, 1)} × ${fmt(c2, 1)} in, ℓ_c = ${fmt(lc, 1)} in (top of pad to top of pier); A_g = ${fmt(Ag, 1)} in²; ${pier.bars ? `${pier.bars.count} ${pier.bars.size} vertical${pier.ties ? `, ${pier.ties}` : ""}` : "plain concrete"}`,
+    },
+    {
+      desc: "Factored load at the pier base",
+      expr: `${gov.c.label}: P_u = ${fmt(gov.P, 0)} lb (pier self weight ${fmt(wPier, 0)} lb included)`,
+    },
+  ];
+  const push = (c: Check, line: CalcLine) => {
+    checks.push(c);
+    out.push({ ...line, pass: c.pass });
+  };
+  if (!pier.bars) {
+    const k = 1 - (lc / (32 * hMin)) ** 2;
+    const phiPn = 0.6 * 0.6 * f.fc * k * Ag;
+    push(
+      {
+        name: "Pier height ≤ 3 × least dimension (plain pedestal, ACI 318-19 Ch. 14)",
+        category: "detailing",
+        demand: lc,
+        capacity: 3 * hMin,
+        ratio: lc / (3 * hMin),
+        pass: lc <= 3 * hMin,
+        combo: "—",
+        CD: 1,
+        unit: "in",
+      },
+      { desc: "Plain pedestal height", expr: `ℓ_c = ${fmt(lc, 1)} in ≤ 3h = ${fmt(3 * hMin, 1)} in` },
+    );
+    push(
+      {
+        name: "Pier axial (plain, ACI 318-19 14.5.3.1)",
+        demand: gov.P,
+        capacity: phiPn,
+        ratio: gov.P / phiPn,
+        pass: gov.P <= phiPn,
+        combo: gov.c.label,
+        CD: 1,
+        unit: "lb",
+      },
+      {
+        desc: "Axial strength (plain)",
+        expr: `φP_n = 0.60 × 0.60 f'c [1 − (ℓ_c / 32h)²] A_1 = 0.36 × ${fmt(f.fc, 0)} × ${fmt(k, 4)} × ${fmt(Ag, 1)} = ${fmt(phiPn, 0)} lb ≥ P_u`,
+      },
+    );
+  } else {
+    const b = bar(pier.bars.size);
+    const Ast = b.A * pier.bars.count;
+    const phiPn = 0.65 * 0.8 * (0.85 * f.fc * (Ag - Ast) + f.fy * Ast);
+    const rho = Ast / Ag;
+    const slender = lc / (0.3 * hMin);
+    push(
+      {
+        name: "Pier axial (tied, ACI 318-19 22.4.2.1)",
+        demand: gov.P,
+        capacity: phiPn,
+        ratio: gov.P / phiPn,
+        pass: gov.P <= phiPn,
+        combo: gov.c.label,
+        CD: 1,
+        unit: "lb",
+      },
+      {
+        desc: "Axial strength (reinforced)",
+        expr: `φP_n,max = 0.65 × 0.80 [0.85 f'c (A_g − A_st) + f_y A_st] = 0.52 × [0.85 × ${fmt(f.fc, 0)} × (${fmt(Ag, 1)} − ${fmt(Ast, 2)}) + ${fmt(f.fy, 0)} × ${fmt(Ast, 2)}] = ${fmt(phiPn, 0)} lb ≥ P_u`,
+      },
+    );
+    push(
+      {
+        name: "Pier longitudinal steel ρ_g ≥ 0.01 (ACI 318-19 10.6.1.1)",
+        category: "detailing",
+        demand: 0.01,
+        capacity: rho,
+        ratio: 0.01 / rho,
+        pass: rho >= 0.01,
+        combo: "—",
+        CD: 1,
+        unit: "—",
+      },
+      { desc: "Longitudinal steel", expr: `ρ_g = A_st / A_g = ${fmt(Ast, 2)} / ${fmt(Ag, 1)} = ${fmt(rho, 4)} ≥ 0.01` },
+    );
+    push(
+      {
+        name: "Pier slenderness k ℓ_u / r ≤ 22 (ACI 318-19 6.2.5.1)",
+        category: "detailing",
+        demand: slender,
+        capacity: 22,
+        ratio: slender / 22,
+        pass: slender <= 22,
+        combo: "—",
+        CD: 1,
+        unit: "—",
+      },
+      {
+        desc: "Slenderness",
+        expr: `k ℓ_u / r = 1.0 × ${fmt(lc, 1)} / (0.3 × ${fmt(hMin, 1)}) = ${fmt(slender, 1)} ≤ 22`,
+      },
+    );
+    assumptions.push(
+      fromDefault("Pier bracing", "Top of pier braced by the floor framing (k = 1.0)", "ACI 318-19 6.2.5"),
+    );
+  }
+  if (pier.bearing) {
+    const { b, l, Fcperp } = pier.bearing;
+    const Cb = pier.bearing.Cb ?? 1;
+    const A1 = b * l;
+    const phi = pier.bars ? 0.65 : 0.6;
+    const k = Math.min(2, Math.sqrt(Ag / A1));
+    const phiBn = phi * 0.85 * f.fc * A1 * k;
+    push(
+      {
+        name: `Concrete bearing on the pier top (ACI 318-19 ${pier.bars ? "22.8.3" : "14.5.6"})`,
+        demand: govB.Pb,
+        capacity: phiBn,
+        ratio: govB.Pb / phiBn,
+        pass: govB.Pb <= phiBn,
+        combo: govB.c.label,
+        CD: 1,
+        unit: "lb",
+      },
+      {
+        desc: "Concrete bearing",
+        expr: `φB_n = ${fmt(phi, 2)} × 0.85 f'c A_1 √(A_2/A_1) = ${fmt(phi, 2)} × 0.85 × ${fmt(f.fc, 0)} × ${fmt(A1, 2)} × ${fmt(k, 2)} = ${fmt(phiBn, 0)} lb ≥ P_u = ${fmt(govB.Pb, 0)} lb`,
+      },
+    );
+    const fcp = svc.P / A1;
+    const Fp = Fcperp * Cb;
+    push(
+      {
+        name: "Wood bearing on the pier, f_c⊥ ≤ F'_c⊥ (NDS 3.10)",
+        demand: fcp,
+        capacity: Fp,
+        ratio: fcp / Fp,
+        pass: fcp <= Fp,
+        combo: svc.c.label,
+        CD: 1,
+        unit: "psi",
+      },
+      {
+        desc: "Wood bearing",
+        expr: `f_c⊥ = P / A_b = ${fmt(svc.P, 0)} / (${fmt(b, 2)} × ${fmt(l, 2)}) = ${fmt(fcp, 0)} psi ≤ F_c⊥ C_b = ${fmt(Fcperp, 0)} × ${fmt(Cb, 3)} = ${fmt(Fp, 0)} psi (${svc.c.label})`,
+      },
+    );
+  }
+  return out;
 }

@@ -26,6 +26,9 @@ import type {
   MasonryWallSpec,
   RetainingWallSpec,
   GuardPostSpec,
+  SillAnchorSpec,
+  LintelSpec,
+  CrawlSpaceSpec,
   CfsWallSpec,
   HoldownFootingSpec,
   TieInSpec,
@@ -67,7 +70,10 @@ export type NewMemberKind =
   | "steelTruss"
   | "retainingWall"
   | "guardPost"
-  | "cfsWall";
+  | "cfsWall"
+  | "sillAnchor"
+  | "lintel"
+  | "crawlSpace";
 
 export const NEW_MEMBER_LABEL: Record<NewMemberKind, string> = {
   joist: "Floor joist (FJ)",
@@ -103,6 +109,9 @@ export const NEW_MEMBER_LABEL: Record<NewMemberKind, string> = {
   retainingWall: "Cantilever retaining wall (RW)",
   guardPost: "Deck guard post (GP)",
   cfsWall: "Cold-formed steel stud wall (CS)",
+  sillAnchor: "Sill anchorage — wind sill shear (SA)",
+  lintel: "Lintel in a concrete foundation wall (LN)",
+  crawlSpace: "Crawl space — vents, access, clearances (CR)",
 };
 
 let counter = 0;
@@ -674,6 +683,46 @@ export function newMemberSpec(p: Project, kind: NewMemberKind, structureId: stri
         },
         K: 1,
       } satisfies CfsWallSpec;
+    case "sillAnchor":
+      return {
+        kind: "sillAnchor",
+        ...base,
+        h: 15,
+        Ke: 1,
+        G: 0.85,
+        CpW: 0.8,
+        X: { face: 30, height: 12, sill: 80 },
+        Y: { face: 40, height: 12, sill: 60 },
+        bolt: { d: 0.5, spacing: 72, embed: 7 },
+        sill: { t: 1.5, G: 0.55, species: "SP (PT)" },
+        Fem: 7500,
+        CD: 1.6,
+      } satisfies SillAnchorSpec;
+    case "lintel":
+      return {
+        kind: "lintel",
+        ...base,
+        opening: 3,
+        bearing: 8,
+        h: 16,
+        b: 8,
+        bars: { size: "#4", count: 2 },
+        cover: 1.5,
+        extra: [],
+      } satisfies LintelSpec;
+    case "crawlSpace":
+      return {
+        kind: "crawlSpace",
+        ...base,
+        area: 1000,
+        vaporRetarder: true,
+        vents: { count: 4, netArea: 50, nearCorners: true },
+        access: { through: "wall", w: 24, h: 18, location: "" },
+        stemAboveGrade: 16,
+        sill: 1.5,
+        girderDepth: 9.25,
+        treated: false,
+      } satisfies CrawlSpaceSpec;
   }
 }
 
@@ -707,6 +756,9 @@ export function supportCount(m: MemberSpec): number {
     case "retainingWall":
     case "guardPost":
     case "shearPanel":
+    case "sillAnchor":
+    case "lintel":
+    case "crawlSpace":
       return 0;
     case "cfsWall":
       return 1;

@@ -21,6 +21,10 @@ export interface TjiProps {
   K: number;
   /** allowable end reaction at 1-3/4 in. bearing, lb */
   Rend: number;
+  /** allowable intermediate reaction at 3-1/2 in. bearing, no web stiffeners, lb (absent = not tabulated here; Rend used) */
+  Rint?: number;
+  /** manufacturer document the row was checked against (absent = legacy JoistCalc values, not checked) */
+  source?: string;
   /** self weight, plf */
   weight: number;
 }
@@ -32,7 +36,20 @@ export const TJI: Record<TjiSeries, Partial<Record<TjiDepth, TjiProps>>> = {
   },
   "TJI 210": {
     '9-1/2"': { d: 9.5, bf: 2.3, tw: 0.375, Mr: 3195, Vr: 1315, EI: 222e6, K: 4.6e6, Rend: 1315, weight: 2.7 },
-    '11-7/8"': { d: 11.875, bf: 2.3, tw: 0.375, Mr: 4045, Vr: 1560, EI: 348e6, K: 5.3e6, Rend: 1560, weight: 2.9 },
+    // checked against Weyerhaeuser TJ-4000 (Sept 2023) on the Smithey Duplex job
+    '11-7/8"': {
+      d: 11.875,
+      bf: 2.3,
+      tw: 0.375,
+      Mr: 3795,
+      Vr: 1655,
+      EI: 315e6,
+      K: 5.3e6,
+      Rend: 1005,
+      Rint: 2145,
+      weight: 2.8,
+      source: "Weyerhaeuser TJ-4000 (Sept 2023)",
+    },
     '14"': { d: 14, bf: 2.3, tw: 0.375, Mr: 4830, Vr: 1790, EI: 485e6, K: 5.9e6, Rend: 1790, weight: 3.1 },
   },
   "TJI 230": {

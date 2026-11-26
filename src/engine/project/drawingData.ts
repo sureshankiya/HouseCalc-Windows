@@ -15,6 +15,7 @@
  * The engineer reviews and edits the sheet before applying it.
  */
 
+import { getCycle, type CycleId } from "../core/codes";
 import { SAWN_SIZES } from "../data/sections";
 import { defaultHardware } from "../data/hardware";
 import { findHardware, hardwareFromDrawings } from "./drawingHardware";
@@ -143,13 +144,21 @@ export function convertDrawingData(text: string): DrawingDataResult {
   if (iso) set("info.date", q(iso), `Issue date: ${date}`);
   const rev = /revision:\s*(RV?\d+|\d+)/i.exec(text)?.[1];
   if (rev) set("info.revision", q(rev), `Revision: ${rev}`);
-  if (/2025\s*CBC/i.test(text)) set("cycleId", q("2025"), "Code cycle: 2025 CBC");
-  else if (/2022\s*CBC/i.test(text)) set("cycleId", q("2022"), "Code cycle: 2022 CBC (as printed)");
-  else if (/OSSC|ORSC/i.test(text)) set("cycleId", q("OR2022"), "Code cycle: Oregon OSSC / ORSC (as printed)");
-  else if (/WAC\s*51-5[01]/i.test(text))
-    set("cycleId", q("WA2021"), "Code cycle: Washington 2021 IBC / IRC (as printed)");
-  else if (/2024\s*I[BR]C/i.test(text)) set("cycleId", q("IBC2024"), "Code cycle: 2024 IBC / IRC");
-  else if (/2021\s*I[BR]C/i.test(text)) set("cycleId", q("IBC2021"), "Code cycle: 2021 IBC / IRC (as printed)");
+  const cycleFound: [CycleId, string] | undefined = /2025\s*CBC/i.test(text)
+    ? ["2025", "Code cycle: 2025 CBC"]
+    : /2022\s*CBC/i.test(text)
+      ? ["2022", "Code cycle: 2022 CBC (as printed)"]
+      : /OSSC|ORSC/i.test(text)
+        ? ["OR2022", "Code cycle: Oregon OSSC / ORSC (as printed)"]
+        : /WAC\s*51-5[01]/i.test(text)
+          ? ["WA2021", "Code cycle: Washington 2021 IBC / IRC (as printed)"]
+          : /2024\s*I[BR]C/i.test(text)
+            ? ["IBC2024", "Code cycle: 2024 IBC / IRC"]
+            : /2021\s*I[BR]C/i.test(text)
+              ? ["IBC2021", "Code cycle: 2021 IBC / IRC (as printed)"]
+              : undefined;
+  if (cycleFound) set("cycleId", q(cycleFound[0]), cycleFound[1]);
+  const bcShort = getCycle(cycleFound?.[0]).building.split(" / ")[0];
 
   /* ------------------------------------------------------------- criteria */
   const rowsOf = (t: Table) =>
@@ -270,7 +279,7 @@ export function convertDrawingData(text: string): DrawingDataResult {
     set("criteria.soil.bearing", String(firstNum(soil.value)), `Allowable soil bearing: ${firstNum(soil.value)} psf`);
   else if (/no allowable soil bearing/i.test(text) || /soils report \(not supplied\)/i.test(text))
     notes.push(
-      "Soil: no allowable bearing pressure or geotechnical report — HouseCalc's presumptive CBC Table 1806.2 Class 5 value (1,500 psf) is used. REQUIRED INPUT / VERIFY.",
+      `Soil: no allowable bearing pressure or geotechnical report — HouseCalc's presumptive ${bcShort} Table 1806.2 Class 5 value (1,500 psf) is used. REQUIRED INPUT / VERIFY.`,
     );
 
   const fcRows = kv.filter((r) => /concrete/i.test(r.label) && /f'?c|strength/i.test(r.label + r.value));
@@ -861,7 +870,7 @@ export function convertDrawingData(text: string): DrawingDataResult {
   if (!soil && /no allowable soil bearing/i.test(text))
     set(
       "criteria.soil.source",
-      q("Presumptive load-bearing value, CBC Table 1806.2 (no geotechnical report)"),
+      q(`Presumptive load-bearing value, ${bcShort} Table 1806.2 (no geotechnical report)`),
       "Soil bearing source: presumptive (no geotechnical report)",
     );
 

@@ -147,7 +147,7 @@ describe("CJ — ceiling joist acting as rafter tie", () => {
 });
 
 describe("IJ — TJI I-joist", () => {
-  it("matches the JoistCalc formulas: TJI 210 11-7/8 @ 16 in., 16 ft, 15 + 40 psf + self weight", () => {
+  it("matches the JoistCalc formulas: TJI 210 11-7/8 (TJ-4000 Sept 2023) @ 16 in., 16 ft, 15 + 40 psf + self weight", () => {
     const r = designIJoist(ctx, {
       id: "ij1",
       mark: "IJ-1",
@@ -164,14 +164,40 @@ describe("IJ — TJI I-joist", () => {
       addSelfWeight: true,
     });
     const m = r.checks.find((c) => c.name.startsWith("Moment, positive"))!;
-    expect(m.demand).toBeCloseTo(((55 * 16) / 12 + 2.9) * 32, 1);
-    expect(m.capacity).toBe(4045);
-    expect(r.checks.find((c) => c.name.startsWith("Shear"))!.demand).toBeCloseTo(((55 * 16) / 12 + 2.9) * 8, 1);
-    expect(r.deflection[0].live).toBeCloseTo(0.22599 + 0.030913, 3);
-    const wT = (55 * 16) / 12 + 2.9;
-    const bend = (5 * (wT / 12) * 192 ** 4) / (384 * 348e6);
+    expect(m.demand).toBeCloseTo(((55 * 16) / 12 + 2.8) * 32, 1);
+    expect(m.capacity).toBe(3795);
+    expect(r.checks.find((c) => c.name.startsWith("Shear"))!.demand).toBeCloseTo(((55 * 16) / 12 + 2.8) * 8, 1);
+    expect(r.deflection[0].live).toBeCloseTo(
+      (5 * ((40 * 16) / 144) * 192 ** 4) / (384 * 315e6) + (((40 * 16) / 144) * 192 ** 2) / 5.3e6,
+      3,
+    );
+    const wT = (55 * 16) / 12 + 2.8;
+    const bend = (5 * (wT / 12) * 192 ** 4) / (384 * 315e6);
     const shear = ((wT / 12) * 192 ** 2) / 5.3e6;
     expect(r.deflection[0].total).toBeCloseTo(bend + shear, 3);
+  });
+
+  it("checks an intermediate support against the 3-1/2 in. intermediate reaction (TJ-4000)", () => {
+    const r = designIJoist(ctx, {
+      id: "ij2",
+      mark: "IJ-2",
+      description: "",
+      series: "TJI 210",
+      depth: '11-7/8"',
+      spacing: 16,
+      spans: [12, 12],
+      dead: { psf: 15 },
+      live: { use: "living" },
+      extra: [],
+      bearing: [1.75, 3.5, 1.75],
+      deflection: { preset: "floor" },
+      addSelfWeight: true,
+    });
+    const mid = r.checks.find((c) => c.name.startsWith("Reaction at support") && c.name.includes("intermediate"))!;
+    const end = r.checks.find((c) => c.name.startsWith("Reaction at support") && c.name.includes("(end"))!;
+    expect(mid.capacity / mid.CD!).toBeCloseTo(2145, 6);
+    expect(end.capacity / end.CD!).toBeCloseTo(1005, 6);
+    expect(r.flags.some((f) => f.includes("end-reaction value"))).toBe(false);
   });
 });
 

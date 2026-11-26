@@ -173,6 +173,20 @@ export function targetFields(m: MemberSpec): TargetField[] {
         { field: "guardHeight", label: "Guard height (in)", numeric: true },
         { field: "s", label: "Bolt spacing (in)", numeric: true },
       ];
+    case "sillAnchor":
+      return [
+        ...common,
+        { field: "bolt.spacing", label: "Anchor bolt spacing (in)", numeric: true },
+        { field: "h", label: "Mean roof height (ft)", numeric: true },
+      ];
+    case "lintel":
+      return [
+        ...common,
+        { field: "opening", label: "Opening width (ft)", numeric: true },
+        { field: "h", label: "Lintel depth (in)", numeric: true },
+      ];
+    case "crawlSpace":
+      return [...common, { field: "area", label: "Crawl space area (ft²)", numeric: true }];
     case "connector":
     case "diaphragm":
     case "uplift":

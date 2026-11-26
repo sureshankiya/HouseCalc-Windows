@@ -22,6 +22,7 @@
  * stud-pack point loads (to pads or footings).
  */
 
+import { getCycle } from "../core/codes";
 import { asdCombinations, combine, relevantCombinations, type Combination } from "../core/combos";
 import { fmt, fmtFtIn } from "../core/fmt";
 import { LOAD_TYPES, addLoads, loadVector, scaleLoads, zeroLoads, type LoadType, type LoadVector } from "../core/loads";
@@ -572,7 +573,7 @@ export function designWall(ctx: DesignContext, wl: WallInput): WallResult {
     assumptions.push(
       fromDefault(
         "Weak-axis bracing",
-        `Studs braced about the weak axis by ${wl.sheathing === "both" ? "sheathing both faces" : "sheathing one face"}, fastened per IBC / CBC Table 2304.10.2`,
+        `Studs braced about the weak axis by ${wl.sheathing === "both" ? "sheathing both faces" : "sheathing one face"}, fastened per ${getCycle(ctx.cycleId).building} Table 2304.10.2`,
         "NDS 3.7.1",
       ),
     );

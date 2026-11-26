@@ -276,8 +276,9 @@ export function designIJoist(ctx: DesignContext, j: IJoistInput): IJoistResult {
         : i === a.supports.length - 1
           ? (j.rightCantilever ?? 0) <= 0.25
           : false;
-    const gr = gov((r) => r.R[i] / (p.Rend * r.CD));
-    const cap = p.Rend * gr.CD;
+    const Rr = end ? p.Rend : (p.Rint ?? p.Rend);
+    const gr = gov((r) => r.R[i] / (Rr * r.CD));
+    const cap = Rr * gr.CD;
     checks.push({
       name: `Reaction at support ${supportName(i)} (${end ? "end" : "intermediate"}, R × C_D)`,
       demand: gr.R[i],
@@ -454,9 +455,11 @@ export function designIJoist(ctx: DesignContext, j: IJoistInput): IJoistResult {
     ...loadAssumptions(dead, live),
     fromDefault(
       "I-joist properties",
-      `${j.series} ${j.depth}: ${tableStatusText("tji-4000")}`,
+      p.source
+        ? `${j.series} ${j.depth}: ${p.source}, checked`
+        : `${j.series} ${j.depth}: ${tableStatusText("tji-4000")}; row not checked against TJ-4000 (Sept 2023) — VERIFY`,
       "manufacturer",
-      TABLES["tji-4000"].status !== "verified",
+      !p.source,
     ),
     fromDefault(
       "Load duration",
@@ -467,7 +470,7 @@ export function designIJoist(ctx: DesignContext, j: IJoistInput): IJoistResult {
   ];
   const flags = [
     "Web stiffeners, blocking panels, rim board and hole locations per manufacturer",
-    ...(a.supports.length > 2
+    ...(a.supports.length > 2 && p.Rint === undefined
       ? [
           "Intermediate reaction checked against the end-reaction value (conservative) — confirm with the manufacturer's intermediate bearing value",
         ]

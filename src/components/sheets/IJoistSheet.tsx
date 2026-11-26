@@ -197,6 +197,21 @@ export function IJoistSheet({
           </>
         }
       />
+      {p.Rint !== undefined ? (
+        <TR
+          desc="Allowable intermediate reaction (3-1/2 in. bearing, no web stiffeners)"
+          expr={
+            <>
+              R<sub>r,int</sub>
+              {eq(`${f0(p.Rint)} lb`)}
+            </>
+          }
+        />
+      ) : null}
+      <TR
+        desc="Design properties source"
+        expr={p.source ?? <Flag>Legacy library values — VERIFY against TJ-4000</Flag>}
+      />
       <TR desc="Bending stiffness" expr={<>EI{eq(`${fmt(p.EI / 1e6, 0)} × 10⁶ lb-in²`)}</>} />
       <TR desc="Shear deflection coefficient" expr={<>K{eq(`${fmt(p.K / 1e6, 2)} × 10⁶ lb`)}</>} />
       <TR
@@ -259,7 +274,7 @@ export function IJoistSheet({
             pass={c.pass}
           />
         ))}
-      <SectionHead title="Deflection — bending + shear; limits IBC / CBC Table 1604.3" />
+      <SectionHead title={`Deflection — bending + shear; limits ${m.cycle.building} Table 1604.3`} />
       {r.deflection.map((x) => (
         <IJoistDefl key={x.segment} x={x} />
       ))}

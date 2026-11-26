@@ -417,8 +417,8 @@ export function CriteriaPanel({ p, set }: { p: Project; set: SetProject }) {
           <Select
             value={c.liveBasis}
             options={[
-              { value: "IRC", label: "IRC / CRC R301.5" },
-              { value: "IBC", label: "IBC / CBC 1607.1" },
+              { value: "IRC", label: `${getCycle(p.cycleId).residential} R301.5` },
+              { value: "IBC", label: `${getCycle(p.cycleId).building} 1607.1` },
             ]}
             onChange={(v) => crit({ liveBasis: v })}
           />
@@ -540,7 +540,7 @@ export function CriteriaPanel({ p, set }: { p: Project; set: SetProject }) {
                       ...c.soil,
                       class: v as "1",
                       bearing: soilClass(v).bearing,
-                      source: `Presumptive, IBC / CBC Table 1806.2, Class ${v} — verify soil class in the field`,
+                      source: `Presumptive, ${getCycle(p.cycleId).building} Table 1806.2, Class ${v} — verify soil class in the field`,
                     }
                   : { ...c.soil, class: undefined },
               })
@@ -560,6 +560,13 @@ export function CriteriaPanel({ p, set }: { p: Project; set: SetProject }) {
             allowEmpty
             min={0}
             onChange={(v) => crit({ soil: { ...c.soil, frostDepth: v } })}
+          />
+        </Field>
+        <Field label="Fill compaction (notes)">
+          <TextInput
+            value={c.soil.compaction ?? ""}
+            placeholder="90 % relative compaction (ASTM D1557)"
+            onChange={(v) => crit({ soil: { ...c.soil, compaction: v || undefined } })}
           />
         </Field>
       </Grid>

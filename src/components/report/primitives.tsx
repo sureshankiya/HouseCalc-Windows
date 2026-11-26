@@ -106,6 +106,7 @@ export interface TitleFields {
 }
 
 export function TitleBlock({ f }: { f: TitleFields }) {
+  const final = useFinal();
   const cellBase = "border border-black px-2 py-1 align-top";
   const label = "text-[9pt] leading-tight text-black";
   const value = "text-[10pt] font-bold leading-tight text-black";
@@ -134,10 +135,8 @@ export function TitleBlock({ f }: { f: TitleFields }) {
             <div className={value}>{f.section}</div>
           </td>
           <td className={cellBase} colSpan={2}>
-            <div className={label}>Sheet no./rev.</div>
-            <div className={value}>
-              {f.sheet} / {f.revision}
-            </div>
+            <div className={label}>{final ? "Sheet no." : "Sheet no./rev."}</div>
+            <div className={value}>{final ? f.sheet : `${f.sheet} / ${f.revision}`}</div>
           </td>
         </tr>
         <tr>

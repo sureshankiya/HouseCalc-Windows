@@ -103,7 +103,7 @@ export function resolveLive(
   ref: LiveRef,
 ): { psf: number; label: string; ref: string; roof: boolean; override: boolean } {
   if (ref.use) {
-    const l = liveLoad(ref.use, ctx.liveBasis);
+    const l = liveLoad(ref.use, ctx.liveBasis, getCycle(ctx.cycleId));
     const roof = !!liveDef(ref.use).roof;
     if (ref.psf !== undefined && ref.psf !== l.psf)
       return { psf: ref.psf, label: l.label, ref: l.ref, roof, override: true };

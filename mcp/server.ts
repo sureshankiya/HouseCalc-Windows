@@ -210,7 +210,7 @@ tool(
   "add_member",
   {
     description:
-      "Add a member from the app's template for kind (joist, rafter, ceilingJoist, ijoist, beam, header, ridge, truss, wall, post, connector, footing, pad, shearWall, ftaoWall, roofDiaphragm, floorDiaphragm, transfer, uplift, ledger, steelBeam, steelColumn, basePlate, cmuWall, concreteWall, holdownFooting, tieIn, woodTruss, retainingWall, guardPost, cfsWall). Mark is assigned from the project's mark scheme; optional patch is merged onto the template (objects merge, arrays replace).",
+      "Add a member from the app's template for kind (joist, rafter, ceilingJoist, ijoist, beam, header, ridge, truss, wall, post, connector, footing, pad, shearWall, ftaoWall, roofDiaphragm, floorDiaphragm, transfer, uplift, ledger, steelBeam, steelColumn, basePlate, cmuWall, concreteWall, holdownFooting, tieIn, woodTruss, retainingWall, guardPost, cfsWall, sillAnchor, lintel, crawlSpace). Mark is assigned from the project's mark scheme; optional patch is merged onto the template (objects merge, arrays replace).",
     inputSchema: {
       kind: z.string(),
       structureId: z.string().optional(),

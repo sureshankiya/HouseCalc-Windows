@@ -38,7 +38,10 @@ export type MarkKey =
   | "guardPost"
   | "cfsWall"
   | "steelTruss"
-  | "shearPanel";
+  | "shearPanel"
+  | "sillAnchor"
+  | "lintel"
+  | "crawlSpace";
 
 export const DEFAULT_MARKS: Record<MarkKey, string> = {
   joist: "FJ-{n}",
@@ -73,6 +76,9 @@ export const DEFAULT_MARKS: Record<MarkKey, string> = {
   cfsWall: "CS-{n}",
   steelTruss: "STR-{n}",
   shearPanel: "{L}SSW-{n}",
+  sillAnchor: "SA-{n}",
+  lintel: "LN-{n}",
+  crawlSpace: "CR-{n}",
 };
 
 export const markKeyOf = (m: Pick<MemberSpec, "kind"> & { role?: string; type?: string; level?: string }): MarkKey =>
