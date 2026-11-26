@@ -110,7 +110,7 @@ export function CoverSheet({ m, design, entries }: { m: SheetMeta; design: Proje
           ["Client", p.info.client || "—"],
           ["Jurisdiction", p.info.jurisdiction || "—"],
           ["Job reference", p.info.jobRef || "—"],
-          ["Date / revision", `${p.info.date || "—"} / Rev. ${p.info.revision}`],
+          final ? ["Date", p.info.date || "—"] : ["Date / revision", `${p.info.date || "—"} / Rev. ${p.info.revision}`],
           ["Prepared by", p.info.preparedBy || "—"],
           ["Code cycle", <b key="c">{c.label}</b>],
           ["Building / residential code", `${c.building}; ${c.residential}`],
@@ -118,10 +118,7 @@ export function CoverSheet({ m, design, entries }: { m: SheetMeta; design: Proje
             "Referenced standards",
             `${c.asce7}; ANSI/AWC ${c.nds} and ${c.ndsSupplement}; ${c.sdpws}; ${c.aci318}; ${c.aisc360}; ${c.tms402}`,
           ],
-          [
-            "Software",
-            final ? softwareText(c.id).replace(/; UNLOCKED build — not for issue$/, "") : softwareText(c.id),
-          ],
+          ["Software", softwareText(c.id, final)],
           ["Scope of this package", [...counts.entries()].map(([k, n]) => `${k} × ${n}`).join("; ") || "—"],
           ["Sheets in this package", String(entries.length)],
         ]}
@@ -355,7 +352,7 @@ export function CriteriaSheet({ m, design }: { m: SheetMeta; design: ProjectDesi
           </>
         }
       />
-      <SectionHead title="Deflection limits — IBC / CBC Table 1604.3" />
+      <SectionHead title={`Deflection limits — ${m.cycle.building} Table 1604.3`} />
       <DataTable
         head={["Member group", "Live (L, Lr, S)", "Total (K_cr D + live)", "Used"]}
         rows={Object.values(DEFLECTION_PRESETS).map((d) => [
@@ -502,8 +499,8 @@ export function LoadsSheet({ m }: { m: SheetMeta }) {
         subtitle={
           <>
             Dead loads per ASCE 7 Table C3.1-1a; live loads per{" "}
-            {cr.liveBasis === "IRC" ? "IRC / CRC Table R301.5" : "IBC / CBC Table 1607.1"}; roof live and snow per{" "}
-            {m.cycle.asce7}
+            {cr.liveBasis === "IRC" ? `${m.cycle.residential} Table R301.5` : `${m.cycle.building} Table 1607.1`}; roof
+            live and snow per {m.cycle.asce7}
           </>
         }
       />
@@ -578,7 +575,7 @@ export function LoadsSheet({ m }: { m: SheetMeta }) {
         align={["left", "right", "left", "left"]}
         small
         rows={LIVE_LOADS.filter((l) => l.use !== "none").map((l) => {
-          const v = liveLoad(l.use, cr.liveBasis);
+          const v = liveLoad(l.use, cr.liveBasis, m.cycle);
           return [
             l.label + (l.concentrated ? ` — concentrated ${l.concentrated}` : ""),
             f0(v.psf),
@@ -1312,7 +1309,7 @@ export function SchedulesSheet({ m, design }: { m: SheetMeta; design: ProjectDes
             ])}
         />
       ) : null}
-      <TextRow italic>Typical nailing per CRC / IRC Table R602.3(1) unless scheduled above.</TextRow>
+      <TextRow italic>Typical nailing per {m.cycle.residential} Table R602.3(1) unless scheduled above.</TextRow>
     </Sheet>
   );
 }

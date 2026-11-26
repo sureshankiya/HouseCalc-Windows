@@ -42,7 +42,7 @@ export function footers(m: SheetMeta) {
   const i = m.project.info;
   return {
     left: `${i.name} — ${m.section}`,
-    center: `Rev. ${i.revision}  |  ${i.date}  |  ${m.cycle.label}`,
+    center: `${i.issue === "check" ? `Rev. ${i.revision}  |  ` : ""}${i.date}  |  ${m.cycle.label}`,
   };
 }
 
@@ -88,7 +88,8 @@ export function DesignBasis({
                 if (!t) return null;
                 return (
                   <span key={id} className="block">
-                    {t.source} ({t.edition}){" "}
+                    {t.source.replace("{BC}", c.building)}
+                    {t.edition === "{BC}" ? "" : ` (${t.edition})`}{" "}
                     {t.status === "verified" ? (
                       "— checked"
                     ) : (
@@ -107,7 +108,7 @@ export function DesignBasis({
           VERSION_LOCKED && !PRERELEASE ? (
             softwareText(c.id)
           ) : final ? (
-            softwareText(c.id).replace(/; UNLOCKED build — not for issue$/, "")
+            softwareText(c.id, true)
           ) : (
             <Flag>{softwareText(c.id)}</Flag>
           )

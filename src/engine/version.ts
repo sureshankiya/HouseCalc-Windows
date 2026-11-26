@@ -11,8 +11,8 @@ declare const __DATA_HASH__: string;
 declare const __VERSION_LOCKED__: boolean;
 declare const __LOCKED_ON__: string;
 
-export const ENGINE_VERSION = "1.0.1-wip.28";
-export const DATA_VERSION = "1.1-wip.25";
+export const ENGINE_VERSION = "1.0.1-wip.29";
+export const DATA_VERSION = "1.1-wip.26";
 
 const defined = <T>(get: () => T, fallback: T): T => {
   try {
@@ -45,14 +45,16 @@ export const softwareStamp = (): SoftwareStamp => ({
   locked: VERSION_LOCKED,
 });
 
-/** One-line text for the sheet footer and the cover. */
-export function softwareText(cycleId: string): string {
+/** One-line text for the sheet footer and the cover; `final` drops the build-status wording (final issue). */
+export function softwareText(cycleId: string, final = false): string {
   const lock = !VERSION_LOCKED
-    ? "UNLOCKED build — not for issue"
-    : PRERELEASE
-      ? `pre-release build (not a released version), locked ${LOCKED_ON}`
-      : `locked ${LOCKED_ON}`;
-  return `HouseCalc engine ${ENGINE_VERSION} (${ENGINE_HASH}); data library ${cycleId}-cycle v${DATA_VERSION} (${DATA_HASH}); ${lock}`;
+    ? final
+      ? ""
+      : "; UNLOCKED build — not for issue"
+    : PRERELEASE && !final
+      ? `; pre-release build (not a released version), locked ${LOCKED_ON}`
+      : `; locked ${LOCKED_ON}`;
+  return `HouseCalc engine ${ENGINE_VERSION} (${ENGINE_HASH}); data library ${cycleId}-cycle v${DATA_VERSION} (${DATA_HASH})${lock}`;
 }
 
 /** Differences between the software a project file was saved with and this build. */

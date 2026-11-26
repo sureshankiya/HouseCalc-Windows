@@ -1228,6 +1228,23 @@ function BeamEditor({ p, m, upd }: { p: Project; m: BeamSpec; upd: Upd<BeamSpec>
         {m.material.kind !== "glulam" && m.material.plies > 1 ? (
           <PlyConnectionFields value={m.plyConnection} onChange={(v) => upd({ plyConnection: v })} />
         ) : null}
+        <Grid cols={2}>
+          <Check
+            checked={!!m.spliced}
+            onChange={(v) => upd({ spliced: v ? { factor: 1.25 } : undefined })}
+            label="Plies spliced over supports (design one simple span; interior reaction 2 × R × factor)"
+          />
+          {m.spliced ? (
+            <Field label="Continuity factor">
+              <NumberInput
+                value={m.spliced.factor}
+                min={1}
+                max={1.5}
+                onChange={(v) => upd({ spliced: { factor: v ?? 1.25 } })}
+              />
+            </Field>
+          ) : null}
+        </Grid>
         <Collapsible title={`Notches and holes (${m.openings?.length ?? 0})`} open={!!m.openings?.length}>
           <OpeningsEditor value={m.openings ?? []} onChange={(v) => upd({ openings: v.length ? v : undefined })} />
         </Collapsible>
@@ -2050,6 +2067,11 @@ function FootingEditor({ p, m, upd }: { p: Project; m: FootingSpec; upd: Upd<Foo
             label="Thickened slab-on-grade under the post (monolithic with the slab)"
           />
         ) : null}
+        <Check
+          checked={m.frost ?? strip}
+          onChange={(v) => upd({ frost: v === strip ? undefined : v })}
+          label={`Frost depth applies (${p.criteria.soil.frostDepth ?? 0} in.); off = interior footing, 12 in. minimum`}
+        />
       </Section>
       <Section title="Reinforcement">
         <Grid cols={3}>

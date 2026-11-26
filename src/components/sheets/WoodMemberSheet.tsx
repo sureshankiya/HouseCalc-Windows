@@ -1015,12 +1015,12 @@ function TieRows({ r }: { r: CeilingJoistResult }) {
   );
 }
 
-function DeflectionRows({ r }: { r: WoodMemberResult }) {
+function DeflectionRows({ r, m }: { r: WoodMemberResult; m: SheetMeta }) {
   const d = r.design;
   const g = d.analysis.geometry;
   return (
     <>
-      <SectionHead title="Deflection — NDS 3.5; limits IBC / CBC Table 1604.3" />
+      <SectionHead title={`Deflection — NDS 3.5; limits ${m.cycle.building} Table 1604.3`} />
       <TR
         desc="Modulus of elasticity for deflection"
         expr={
@@ -1244,7 +1244,7 @@ export function WoodMemberSheet({
       <ShearRows d={d} />
       {r.kind === "rafter" ? <RafterBearing r={r} /> : <BearingRows d={d} names={names} />}
       <StabilityRows r={r} />
-      <DeflectionRows r={r} />
+      <DeflectionRows r={r} m={m} />
       <ChecksSummary checks={r.checks} />
       <MemberResult r={r} />
       <Divider />
@@ -1265,7 +1265,7 @@ export function WoodMemberSheet({
                   ]
                 : []),
               ...(connections ?? []),
-            ].join("; ") || "Bearing per framing schedule; toe-nailing per IBC / CBC Table 2304.10.2",
+            ].join("; ") || `Bearing per framing schedule; toe-nailing per ${m.cycle.building} Table 2304.10.2`,
           ],
           [
             "Field verification",

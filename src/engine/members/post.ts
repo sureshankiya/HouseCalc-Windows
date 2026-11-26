@@ -13,6 +13,7 @@
  *  - bearing perpendicular to grain on a wood support below (NDS 3.10.2, C_b 3.10.4)
  */
 
+import { getCycle } from "../core/codes";
 import { asdCombinations, combine, relevantCombinations } from "../core/combos";
 import { fireColumn, type FireInput } from "../design/fire";
 import { fmt, fmtFtIn } from "../core/fmt";
@@ -300,7 +301,7 @@ export function designPost(ctx: DesignContext, p: PostInput): PostResult {
     );
   if (p.bearing.on === "concrete")
     flags.push(
-      "Post bears on concrete through a post base; base clear of the concrete per manufacturer (decay protection, IBC / CBC 2304.12)",
+      `Post bears on concrete through a post base; base clear of the concrete per manufacturer (decay protection, ${getCycle(ctx.cycleId).building} 2304.12)`,
     );
   let alternatives: PostResult["alternatives"];
   if (!pass && p.material.kind === "sawn") {

@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { CYCLE_IDS } from "../core/codes";
+import { CYCLE_ALIASES, CYCLE_IDS } from "../core/codes";
 
 const num = z.number().finite();
 const pos = num.positive();
@@ -286,6 +286,8 @@ export const beamSpecSchema = z.object({
   fire: fireSchema.optional(),
   plyConnection: plyConnectionSchema.optional(),
   openings: z.array(openingSchema).optional(),
+  /** plies spliced over the supports: one span designed simple; interior reaction 2 × R × factor */
+  spliced: z.object({ factor: pos.default(1.25) }).optional(),
 });
 
 export const studPackSchema = z.object({
@@ -404,6 +406,8 @@ export const footingSpecSchema = z.object({
   stories: z.number().int().min(1).max(3),
   /** pad under a post cast as a thickened slab-on-grade */
   thickened: z.boolean().optional(),
+  /** project frost depth applies (absent: strip footings yes, pads no — interior crawl-space pads) */
+  frost: z.boolean().optional(),
 });
 
 export const shearWallSpecSchema = z.object({
@@ -1141,7 +1145,7 @@ export const projectSchema = z.object({
     /** printed issue (absent = "final"): "final" = issued calculations (no VERIFY / review wording); "check" = working copy */
     issue: z.enum(["final", "check"]).optional(),
   }),
-  cycleId: z.enum(CYCLE_IDS),
+  cycleId: z.preprocess((v) => (typeof v === "string" && CYCLE_ALIASES[v]) || v, z.enum(CYCLE_IDS)),
   criteria: z.object({
     riskCategory: z.enum(["I", "II", "III", "IV"]),
     liveBasis: z.enum(["IRC", "IBC"]),
@@ -1156,6 +1160,8 @@ export const projectSchema = z.object({
       class: z.enum(["1", "2", "3", "4", "5"]).optional(),
       density: pos.default(120),
       frostDepth: nonneg.optional(),
+      /** fill compaction for the foundation notes (blank = "90 % relative compaction (ASTM D1557)") */
+      compaction: z.string().optional(),
     }),
     concrete: z
       .object({

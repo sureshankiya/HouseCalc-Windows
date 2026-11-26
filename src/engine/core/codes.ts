@@ -145,7 +145,11 @@ CODE_CYCLES.WA2021 = basedOn(CODE_CYCLES["2022"], {
 export const CYCLE_IDS = Object.keys(CODE_CYCLES) as [CycleId, ...CycleId[]];
 export const CYCLE_LIST = CYCLE_IDS.map((id) => CODE_CYCLES[id]);
 
-export const getCycle = (id?: string): CodeCycle => CODE_CYCLES[(id as CycleId) ?? "2025"] ?? CODE_CYCLES["2025"];
+/** Short ids written by older / patched builds ("2024" = 2024 IBC / IRC, "2021" = 2021 IBC / IRC). */
+export const CYCLE_ALIASES: Record<string, CycleId> = { "2024": "IBC2024", "2021": "IBC2021" };
+
+export const getCycle = (id?: string): CodeCycle =>
+  CODE_CYCLES[(CYCLE_ALIASES[id ?? ""] ?? id ?? "2025") as CycleId] ?? CODE_CYCLES["2025"];
 
 /** Engine and data-library versions printed on every sheet (src/engine/version.ts). */
 export { ENGINE_VERSION } from "../version";

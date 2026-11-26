@@ -1,13 +1,13 @@
 {
   "engine": {
-    "version": "1.0.1-wip.28",
-    "hash": "131520287644"
+    "version": "1.0.1-wip.29",
+    "hash": "58fe3f89955c"
   },
   "data": {
-    "version": "1.1-wip.25",
-    "hash": "e923b12322e9"
+    "version": "1.1-wip.26",
+    "hash": "8bb89b71568c"
   },
-  "lockedOn": "2026-11-24",
+  "lockedOn": "2026-11-26",
   "history": [
     {
       "engine": "0.9.0",
@@ -218,6 +218,13 @@
       "data": "1.1-wip.25",
       "dataHash": "e923b12322e9",
       "lockedOn": "2026-11-24"
+    },
+    {
+      "engine": "1.0.1-wip.29",
+      "engineHash": "58fe3f89955c",
+      "data": "1.1-wip.26",
+      "dataHash": "8bb89b71568c",
+      "lockedOn": "2026-11-26"
     }
   ]
 }

@@ -464,6 +464,7 @@ export const PROJECT_FIELDS: Field[] = [
   textField("criteria.soil.source", ["soil source", "soil report", "geotechnical report", "soils report", "geotech"]),
   numField("criteria.soil.density", "pcf", ["soil density", "soil unit weight"]),
   numField("criteria.soil.frostDepth", "in", ["frost depth"]),
+  textField("criteria.soil.compaction", ["compaction", "fill compaction"]),
   numField("criteria.concrete.fc", "psi", ["f'c", "fc", "concrete strength", "concrete", "concrete f'c"]),
   {
     labels: ["fy", "rebar", "reinforcement", "rebar grade", "reinforcing steel", "reinforcement grade"],

@@ -36,7 +36,8 @@ import { areaWallLoads, type AreaLoad, type WallAbove } from "./distributed";
 
 export type { AreaLoad, WallAbove };
 import { reactionsFrom } from "./joist";
-import type { MemberResultBase } from "./types";
+import type { MemberReaction, MemberResultBase } from "./types";
+import { LOAD_TYPES, loadVector } from "../core/loads";
 
 export type BeamRole = "beam" | "header" | "ridge" | "flush" | "dropped";
 
@@ -76,6 +77,26 @@ export interface BeamInput {
   plyConnection?: PlyConnectionInput;
   /** notches and bored holes */
   openings?: MemberOpening[];
+  /** girder spliced over its supports: the span is designed simple; an extra interior reaction 2 × R × factor is reported */
+  spliced?: { factor: number };
+}
+
+/** Interior support of a girder spliced over its supports: 2 × (larger end reaction) × continuity factor, per load type. */
+export function splicedReaction(ends: MemberReaction[], factor: number, x: number): MemberReaction {
+  const k = 2 * factor;
+  const [a, b] = ends;
+  const down = a.maxDown >= b.maxDown ? a : b;
+  const up = a.minNet <= b.minNet ? a : b;
+  return {
+    support: ends.length,
+    name: `Interior (spliced, 2 × R × ${fmt(factor, 2)})`,
+    x,
+    byType: loadVector(Object.fromEntries(LOAD_TYPES.map((t) => [t, k * Math.max(a.byType[t], b.byType[t])]))),
+    maxDown: k * down.maxDown,
+    maxDownCombo: down.maxDownCombo,
+    minNet: k * up.minNet,
+    minNetCombo: up.minNetCombo,
+  };
 }
 
 export interface BeamResult extends MemberResultBase {
@@ -146,7 +167,22 @@ export function candidateMaterials(m: WoodMaterial): WoodMaterial[] {
   return out.filter((x) => !(x.kind === "glulam" && x.b === m.b && x.d === m.d)).sort((a, b) => area(a) - area(b));
 }
 
-export function designBeam(ctx: DesignContext, b: BeamInput): BeamResult {
+/** Built-up sawn beam with no ply connection entered: 2 rows 16d common @ 12 in. from each face, top-loaded. */
+export const DEFAULT_PLY_CONNECTION: PlyConnectionInput = {
+  fastener: "nail",
+  nail: "16d-common",
+  rows: 2,
+  spacing: 12,
+  load: "top",
+};
+
+export function designBeam(ctx: DesignContext, input: BeamInput): BeamResult {
+  const b =
+    !input.plyConnection && input.material.kind === "sawn" && input.material.plies > 1
+      ? { ...input, plyConnection: DEFAULT_PLY_CONNECTION }
+      : input;
+  if (b.spliced && (b.spans.length !== 1 || b.leftCantilever || b.rightCantilever))
+    throw new Error("Spliced over supports: enter one simple span (the longest) with no cantilevers");
   const built = build(ctx, b);
   const design = designWoodBeam(woodInput(ctx, b, built.loads));
   const flags: string[] = [];
@@ -177,7 +213,13 @@ export function designBeam(ctx: DesignContext, b: BeamInput): BeamResult {
   if (plies > 1 && b.plyConnection) {
     const pc = plyConnection(design, design.mat, b.plyConnection);
     design.checks.push(...pc.checks);
-    design.assumptions.push(fromDefault("Ply connection", `${pc.callout}; ${pc.lines.join("; ")}`, "NDS 12.3"));
+    design.assumptions.push(
+      fromDefault(
+        "Ply connection",
+        `${pc.callout}; ${pc.lines.join("; ")}${input.plyConnection ? "" : "; standard connection, top-loaded — enter the ply connection for side loads"}`,
+        "NDS 12.3",
+      ),
+    );
     flags.push(
       `Plies fastened together with ${pc.callout}; concentrated side loads (hangers, girder trusses): through-bolt or fasten at each load per the manufacturer`,
     );
@@ -215,7 +257,9 @@ export function designBeam(ctx: DesignContext, b: BeamInput): BeamResult {
     pass: design.pass,
     governing: design.governing,
     checks: design.checks,
-    reactions: reactionsFrom(design),
+    reactions: b.spliced
+      ? [...reactionsFrom(design), splicedReaction(reactionsFrom(design), b.spliced.factor, b.spans[0])]
+      : reactionsFrom(design),
     loadLines: built.lines,
     assumptions: design.assumptions,
     flags,

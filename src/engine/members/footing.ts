@@ -76,6 +76,8 @@ export interface FootingInput {
   qaVerify?: boolean;
   soilDensity: number;
   frostDepth?: number;
+  /** frost depth applies to this footing (absent: strip yes, pad no); otherwise 12 in. minimum (IBC 1809.4) */
+  frost?: boolean;
   stories: number;
   /** pad cast as a thickened slab-on-grade under a post or point load */
   thickened?: boolean;
@@ -436,9 +438,10 @@ export function designFooting(ctx: DesignContext, f: FootingInput): FootingResul
       unit: "in",
     });
   }
-  const minDepth = Math.max(MIN_FOOTING_DEPTH, f.frostDepth ?? 0);
+  const frost = (f.frost ?? f.type === "strip") ? (f.frostDepth ?? 0) : 0;
+  const minDepth = Math.max(MIN_FOOTING_DEPTH, frost);
   checks.push({
-    name: `Depth below grade ≥ ${fmt(minDepth, 0)} in. (IBC 1809.4${f.frostDepth ? ", frost" : ""})`,
+    name: `Depth below grade ≥ ${fmt(minDepth, 0)} in. (IBC 1809.4${frost ? ", frost" : f.frostDepth ? "; interior footing, frost depth not applied" : ""})`,
     category: "detailing",
     demand: minDepth,
     capacity: f.depth,
