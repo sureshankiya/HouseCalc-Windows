@@ -152,11 +152,13 @@ export function convertDrawingData(text: string): DrawingDataResult {
         ? ["OR2022", "Code cycle: Oregon OSSC / ORSC (as printed)"]
         : /WAC\s*51-5[01]/i.test(text)
           ? ["WA2021", "Code cycle: Washington 2021 IBC / IRC (as printed)"]
-          : /2024\s*I[BR]C/i.test(text)
-            ? ["IBC2024", "Code cycle: 2024 IBC / IRC"]
-            : /2021\s*I[BR]C/i.test(text)
-              ? ["IBC2021", "Code cycle: 2021 IBC / IRC (as printed)"]
-              : undefined;
+          : /FLORIDA BUILDING CODE|\bFBC\b/i.test(text)
+            ? ["FL2023", "Code cycle: Florida Building Code 8th Ed. (as printed)"]
+            : /2024\s*I[BR]C/i.test(text)
+              ? ["IBC2024", "Code cycle: 2024 IBC / IRC"]
+              : /2021\s*I[BR]C/i.test(text)
+                ? ["IBC2021", "Code cycle: 2021 IBC / IRC (as printed)"]
+                : undefined;
   if (cycleFound) set("cycleId", q(cycleFound[0]), cycleFound[1]);
   const bcShort = getCycle(cycleFound?.[0]).building.split(" / ")[0];
 

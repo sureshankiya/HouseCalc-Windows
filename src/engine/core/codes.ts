@@ -14,7 +14,7 @@
 
 import { DATA_VERSION } from "../version";
 
-export type CycleId = "2025" | "2022" | "IBC2024" | "IBC2021" | "OR2022" | "WA2021";
+export type CycleId = "2025" | "2022" | "IBC2024" | "IBC2021" | "OR2022" | "WA2021" | "FL2023";
 
 export interface CodeCycle {
   id: CycleId;
@@ -92,7 +92,11 @@ export const CODE_CYCLES = {
 /** Same referenced standards as a base cycle; only the governing-code names change. */
 const basedOn = (
   base: CodeCycle,
-  c: Pick<CodeCycle, "id" | "label" | "building" | "residential" | "buildingName" | "residentialName" | "existingCode">,
+  c: Pick<
+    CodeCycle,
+    "id" | "label" | "building" | "residential" | "buildingName" | "residentialName" | "existingCode"
+  > &
+    Partial<Pick<CodeCycle, "asce7" | "snowIncludesIs">>,
 ): CodeCycle => {
   const short = c.building.split(" / ")[0];
   return {
@@ -140,6 +144,20 @@ CODE_CYCLES.WA2021 = basedOn(CODE_CYCLES["2022"], {
   buildingName: "International Building Code with Washington State amendments",
   residentialName: "International Residential Code with Washington State amendments",
   existingCode: "2021 IEBC (WAC 51-50)",
+});
+
+// FBC 8th Ed. (2023): 2021 I-code base (NDS-2018, AISC 360-16, TMS 402-16) but loads to ASCE 7-22.
+// shortcut: HVHZ (Miami-Dade / Broward) provisions of FBC 1620 / 2314-2330 are not modelled, check them by hand there.
+CODE_CYCLES.FL2023 = basedOn(CODE_CYCLES["2022"], {
+  id: "FL2023",
+  label: "Florida 2023 FBC / FBC-R 8th Ed. (2021 IBC / IRC, ASCE 7-22)",
+  building: "2023 FBC / 2021 IBC",
+  residential: "2023 FBC-R / 2021 IRC",
+  buildingName: "Florida Building Code, Building, 8th Edition",
+  residentialName: "Florida Building Code, Residential, 8th Edition",
+  existingCode: "2023 FBC-EB (Florida Building Code, Existing Building, 8th Edition)",
+  asce7: "ASCE 7-22",
+  snowIncludesIs: false,
 });
 
 export const CYCLE_IDS = Object.keys(CODE_CYCLES) as [CycleId, ...CycleId[]];

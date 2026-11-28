@@ -379,12 +379,13 @@ export const PROJECT_FIELDS: Field[] = [
   },
   {
     labels: ["code", "code cycle", "building code", "codes", "governing code"],
-    doc: "cycleId (2025 CBC → 2025; 2022 CBC → 2022; 2024 IBC → IBC2024; 2021 IBC → IBC2021; Oregon OSSC → OR2022; Washington → WA2021)",
+    doc: "cycleId (2025 CBC → 2025; 2022 CBC → 2022; 2024 IBC → IBC2024; 2021 IBC → IBC2021; Oregon OSSC → OR2022; Washington → WA2021; Florida FBC → FL2023)",
     to: (raw) => {
       const id = (CYCLE_IDS as readonly string[]).find((k) => k.toLowerCase() === raw.trim().toLowerCase());
       if (id) return one("cycleId", id);
       if (/oregon|OSSC|ORSC/i.test(raw)) return one("cycleId", "OR2022");
       if (/washington|WAC/i.test(raw)) return one("cycleId", "WA2021");
+      if (/florida|\bFBC/i.test(raw)) return one("cycleId", "FL2023");
       if (/CBC|CRC|california/i.test(raw) || !/I[BR]C/i.test(raw))
         return /2025|2024/.test(raw)
           ? one("cycleId", "2025")

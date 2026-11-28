@@ -53,3 +53,26 @@ describe("S0 follows the project", () => {
     expect(t).toMatch(/L\/240 FOR TOTAL LOAD OR L\/360 FOR LIVE LOAD/);
   });
 });
+
+describe("Florida cycle", () => {
+  it("FBC 8th Ed.: 2021 I-code standards with ASCE 7-22 loads", async () => {
+    const { getCycle } = await import("@/engine/core/codes");
+    expect(getCycle("FL2023")).toMatchObject({
+      asce7: "ASCE 7-22",
+      nds: "NDS-2018",
+      aisc360: "AISC 360-16",
+      tms402: "TMS 402/602-16",
+      edition: "2021",
+      snowIncludesIs: false,
+    });
+  });
+  it("S0 prints the Florida codes and FBC section references", () => {
+    const p = exampleProject();
+    p.cycleId = "FL2023";
+    const t = text(p);
+    expect(t).toMatch(/FLORIDA BUILDING CODE, BUILDING, 8TH EDITION/);
+    expect(t).toMatch(/ASCE\/SEI 7-22/);
+    expect(t).toMatch(/FBC 718\.2 \/ FBC-R R302\.11/);
+    expect(t).not.toMatch(/\bCBC\b|CALIFORNIA/);
+  });
+});

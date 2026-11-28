@@ -209,6 +209,8 @@ describe("code cycle labels", () => {
     ["2021 IRC", "IBC2021"],
     ["Oregon 2022 OSSC", "OR2022"],
     ["Washington 2021 IBC", "WA2021"],
+    ["2023 Florida Building Code", "FL2023"],
+    ["FBC 8th Edition", "FL2023"],
   ])("%s → %s", (code, id) => {
     const r = applyMarkdown(newProject(), SHEET.replace("Code: 2025 CBC", `Code: ${code}`), { mode: "new" });
     if (!r.ok) throw new Error("not applied");
